@@ -33,6 +33,9 @@
               "src/favicon.png",
               "src/manifest.webmanifest"
             ],
+            "allowedCommonJsDependencies": [
+              "@walletconnect","typedarray-to-buffer"
+            ],
             "styles": [
               "src/nfluent.scss",
               "src/styles.css"

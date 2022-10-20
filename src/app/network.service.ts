@@ -9,20 +9,16 @@ import {
 } from "@solana/web3.js";
 import {TOKEN_PROGRAM_ID} from "@solana/spl-token";
 import * as SPLToken from "@solana/spl-token";
-import {TokenListProvider} from "@solana/spl-token-registry";
 import {HttpClient, HttpHeaders} from "@angular/common/http";
-import {$$, CryptoKey, encrypt, words} from "../tools";
+import {$$, encrypt, words} from "../tools";
 import {environment} from "../environments/environment";
 
-import {retry, timeout} from "rxjs";
-import {Operation} from "../operation";
-import {NFT, SolanaToken, SplTokenInfo} from "../nft";
+import {retry, Subject, timeout} from "rxjs";
+import {Collection, Operation} from "../operation";
+import {NFT, SolanaToken, SplTokenInfo, Validator} from "../nft";
 import {Layer} from "../create";
 
-export enum type_addr {
-  "owner",
-  "miner"
-}
+
 
 @Injectable({
   providedIn: 'root'
@@ -35,6 +31,7 @@ export class NetworkService {
   complement: string | undefined ="";
   fiat_unity: string="$";
   version: string="0.1";
+  network_change=new Subject<string>();
 
   constructor(
     private httpClient : HttpClient
@@ -70,6 +67,7 @@ export class NetworkService {
       let network_name=(value=="solana-devnet") ? "devnet" : "mainnet-beta";
       // @ts-ignore
       this._connection=new Connection(clusterApiUrl(network_name), 'confirmed');
+      this.network_change.next(value);
     }
 
   }
@@ -251,74 +249,71 @@ export class NetworkService {
   }
 
 
-
-
-
   isMain() {
-    return this._network=="mainnet";
+    return this._network.indexOf("mainnet")>-1;
   }
 
 
-  all_nfts() : Promise<any[]> {
-    return new Promise((resolve,reject) => {
-      new TokenListProvider().resolve().then((tokens) => {
-        const tokenList = tokens.filterByClusterSlug(this._network).getList();
-        resolve(tokenList);
-      }).catch(err => {
-        reject(err);
-      });
-    });
-  }
-
-
-  build_token_from_ftx(t:any) : SolanaToken {
-    let l_attributes=t.attributesList;
-    l_attributes.push({trait_type:"redeemable",value:t.redeemable});
-    l_attributes.push({trait_type:"redeemed",value:t.redeemed});
-    let token:SolanaToken={
-      splMintInfo: undefined,
-      splTokenInfo: undefined,
-      mint:t.solMintAddress,
-      network:this.network,
-      address:t.solMintAddress,
-      metadataPDA:{},
-      metadataOffchain: {
-        seller_fee_basis_points: t.royaltyFeeRate*100,
-        issuer:t.issuer,
-        attributes:l_attributes,
-        collection: t.collection,
-        name: t.name,
-        description: t.description,
-        image: t.imageUrl,
-        external_url: "",
-        properties: {
-          files:[
-            {uri:t.imageUrl,type:""},{uri:t.animationUrl,type:""}
-          ],
-          caterogy:"",
-          creators:[]
-        },
-      },
-      metadataOnchain:{
-        type:"nft",
-        updateAuthority:"",
-        mint:t.solMintAddress,
-        key:t.id,
-        data:{
-          symbol:"",
-          name:t.name,
-          uri:"",
-          sellerFeeBasisPoints:t.royaltyFeeRate*100,
-          creators:[]
-        },
-        isMutable:0,
-        primarySaleHappened:0
-      },
-      search:{collection:t.collection,metadata:""}
-    }
-    return token;
-  }
-
+  // all_nfts() : Promise<any[]> {
+  //   return new Promise((resolve,reject) => {
+  //     new TokenListProvider().resolve().then((tokens:any) => {
+  //       const tokenList = tokens.filterByClusterSlug(this._network).getList();
+  //       resolve(tokenList);
+  //     }).catch((err:any) => {
+  //       reject(err);
+  //     });
+  //   });
+  // }
+  //
+  //
+  // build_token_from_ftx(t:any) : SolanaToken {
+  //   let l_attributes=t.attributesList;
+  //   l_attributes.push({trait_type:"redeemable",value:t.redeemable});
+  //   l_attributes.push({trait_type:"redeemed",value:t.redeemed});
+  //   let token:SolanaToken={
+  //     splMintInfo: undefined,
+  //     splTokenInfo: undefined,
+  //     mint:t.solMintAddress,
+  //     network:this.network,
+  //     address:t.solMintAddress,
+  //     metadataPDA:{},
+  //     metadataOffchain: {
+  //       seller_fee_basis_points: t.royaltyFeeRate*100,
+  //       issuer:t.issuer,
+  //       attributes:l_attributes,
+  //       collection: t.collection,
+  //       name: t.name,
+  //       description: t.description,
+  //       image: t.imageUrl,
+  //       external_url: "",
+  //       properties: {
+  //         files:[
+  //           {uri:t.imageUrl,type:""},{uri:t.animationUrl,type:""}
+  //         ],
+  //         caterogy:"",
+  //         creators:[]
+  //       },
+  //     },
+  //     metadataOnchain:{
+  //       type:"nft",
+  //       updateAuthority:"",
+  //       mint:t.solMintAddress,
+  //       key:t.id,
+  //       data:{
+  //         symbol:"",
+  //         name:t.name,
+  //         uri:"",
+  //         sellerFeeBasisPoints:t.royaltyFeeRate*100,
+  //         creators:[]
+  //       },
+  //       isMutable:0,
+  //       primarySaleHappened:0
+  //     },
+  //     search:{collection:t.collection,metadata:""}
+  //   }
+  //   return token;
+  // }
+  //
 
   get_tokens_from(type_addr:string,addr:string,limit=100,short=false,filter:any=null,offset=0,network="elrond-devnet") : Promise<any[]> {
 
@@ -350,7 +345,7 @@ export class NetworkService {
           // }
 
           if(type_addr=="owner"){
-            this.httpClient.get(environment.server+"/api/nfts/?limit="+limit+"&offset="+offset+"&account="+addr+"&network="+this.network).subscribe((r:any)=>{
+            this.httpClient.get(environment.server+"/api/nfts/?with_attr="+(!short)+"&limit="+limit+"&offset="+offset+"&account="+addr+"&network="+this.network).subscribe((r:any)=>{
               resolve(r);
             })
 
@@ -392,6 +387,8 @@ export class NetworkService {
         if(this.network.indexOf("elrond")>-1){
           this.httpClient.get(environment.server+"/api/nfts/?limit="+limit+"&offset="+offset+"&account="+addr+"&network="+this.network).subscribe((r:any)=>{
             resolve(r);
+          },(err:any)=>{
+            reject(err);
           })
         }
 
@@ -492,13 +489,12 @@ export class NetworkService {
     return this.httpClient.post(environment.server+"/api/layers/?preview="+preview,  _l);
   }
 
-  get_collection(limit: number,file_format:string,ext="webp",size="200,200",seed=0,quality=98,target="preview",data={},platform="nftstorage") {
+  get_collection(limit: number,file_format:string,ext="webp",size="200,200",seed=0,quality=98,target="preview",data={},attributes:any=[],platform="nftstorage") {
     let url=environment.server+"/api/collection/?seed="+seed+"&image="+ext+"&name="+file_format+"&size=" + size+"&format="+target+"&limit="+limit+"&quality="+quality+"&platform="+platform;
 
-    let s_data=JSON.stringify(data)
-    s_data=btoa(encodeURIComponent(s_data))
+    url=url+"&data="+btoa(encodeURIComponent(JSON.stringify(data)));
+    url=url+"&attributes="+btoa(encodeURIComponent(JSON.stringify(attributes)));
 
-    url=url+"&data="+s_data;
     return this.httpClient.get(
       url,
       { headers: new HttpHeaders({ timeout: `${200000}` }) }
@@ -510,8 +506,12 @@ export class NetworkService {
   }
 
   //recoit un objet aux propriétés filename & content
-  upload(file: any ,platform="nftstorage",type="image/png"){
-    return this.httpClient.post(environment.server+"/api/upload/?platform="+platform+"&type="+type,file);
+  upload(file: any ,platform="nftstorage",type="image/png",convert=""){
+    if(platform!="nfluent"){
+      return this.httpClient.post(environment.server+"/api/upload/?convert="+convert+"&platform="+platform+"&type="+type,file);
+    }else{
+      return this.httpClient.post("https://server.f80lab.com:4242/api/upload/?convert="+convert+"&platform="+platform+"&type="+type,file);
+    }
   }
 
   remove_image(name:string){
@@ -522,8 +522,8 @@ export class NetworkService {
     return this.httpClient.get(environment.server+"/api/reset_collection/");
   }
 
-  save_config_on_server(name:string,body:any) {
-    return this.httpClient.post(environment.server+"/api/save_config/"+encodeURI(name)+"/",body);
+  save_config_on_server(name:string,body:any,with_file=false) {
+    return this.httpClient.post(environment.server+"/api/configs/"+encodeURIComponent(name)+"/?with_file="+with_file,{filename:name,file:body});
   }
 
   load_config(name:string) {
@@ -553,10 +553,11 @@ export class NetworkService {
     return this.httpClient.get(url_api);
   }
 
-  mint_for_contest(addr: string,ope:any,miner:string,metadata_storage:string,network:string,nft:NFT){
+  mint_for_contest(addr: string,ope:any,miner:string,metadata_storage:string,network:string,nft:NFT | null=null,nft_id=""){
     let body:any={
       account:addr,
       token: nft,
+      nft_id:nft_id,
       network:network,
       miner:miner,
       ope:ope,
@@ -569,7 +570,6 @@ export class NetworkService {
 
 
   get_operations(ope="") {
-    if(ope.startsWith("http"))ope="b64:"+btoa(ope);
     return this.httpClient.get<Operation>(environment.server+"/api/operations/"+ope);
   }
 
@@ -632,7 +632,7 @@ export class NetworkService {
   }
 
   get_tokens_to_send(ope="",section="dispenser", limit=1000) {
-    return this.httpClient.get(environment.server+"/api/get_tokens_to_send/"+ope+"?limit="+limit+"&section="+section);
+    return this.httpClient.get(environment.server+"/api/get_tokens_to_send/"+ope+"/?limit="+limit+"&section="+section);
   }
 
   get_nfts_from_operation(ope:string){
@@ -641,10 +641,16 @@ export class NetworkService {
 
   transfer_to(mint_addr: string, to_addr: string,owner:string,network="") {
     if(network.length==0)network=this.network;
-    return this.httpClient.get(environment.server+"/api/transfer_to/"+mint_addr+"/"+to_addr+"/"+owner+"?network="+network);
+    return this.httpClient.get(environment.server+"/api/transfer_to/"+encodeURIComponent(mint_addr)+"/"+encodeURIComponent(to_addr)+"/"+encodeURIComponent(owner)+"/?network="+network);
   }
 
-  generate_svg(data:string) {
+  generate_svg(file_content:string,text_to_add:string,layer_name:string) {
+    let data={
+      file:file_content,
+      sequence: text_to_add.split("|"),
+      layer:layer_name,
+      server:environment.server+"/api/images"
+    }
     return this.httpClient.post(environment.server+"/api/generate_svg/",data);
   }
 
@@ -671,17 +677,12 @@ export class NetworkService {
     return this.httpClient.get<string>(environment.server+"/api/check_access_code/"+access_code+"?format=base64");
   }
 
-  get_nft(owner: string, address: string, network: string) {
-    return this.httpClient.get<any>(environment.server+"/api/nft/"+owner+"/"+address+"?network="+network);
+  get_nft(address: string, network: string) {
+    return this.httpClient.get<any>(environment.server+"/api/nfts/"+address+"?network="+network);
   }
 
-  add_user_for_nft(address:string,network:string,operation_id:string,collections:string[]=[]) {
-    return this.httpClient.post(environment.server+"/api/add_user_for_nft/",{
-      address:address,
-      network:network,
-      operation_id:operation_id,
-      collections:collections
-    });
+  add_user_for_nft(body:any) {
+    return this.httpClient.post(environment.server+"/api/add_user_for_nft/",body);
   }
 
   is_beta() {
@@ -696,19 +697,20 @@ export class NetworkService {
     return this.httpClient.get(environment.server+"/api/nftlive_access/"+addr+"/?network="+network);
   }
 
-  send_photo_for_nftlive(limit:number,conf_id:string, dimensions:string,quality:number,note:string,body: any) {
+  send_photo_for_nftlive(limit:number,conf_id:string, dimensions:string,quality:number,note:string,dynamic_fields:any[], body: any) {
     body["limit"]=limit
     body["dimensions"]=dimensions
     body["note"]=note;
     body["quality"]=quality
+    body["dynamic_fields"]=dynamic_fields
     return this.httpClient.post(environment.server+"/api/send_photo_for_nftlive/"+conf_id+"/",body)
   }
 
 
-  mint(token:NFT, miner:string, owner:string,sign=false, platform="nftstorage", network=""){
+  mint(token:NFT, miner:string, owner:string,sign=false, platform="nftstorage", network="",storage_file=""){
     return new Promise((resolve, reject) => {
       this.wait("Minage en cours sur "+network);
-      this.httpClient.post(environment.server+"/api/mint/?keyfile="+miner+"&owner="+owner+"&sign="+sign+"&platform="+platform+"&network="+network,token).subscribe((r)=>{
+      this.httpClient.post(environment.server+"/api/mint/?storage_file="+storage_file+"&keyfile="+miner+"&owner="+owner+"&sign="+sign+"&platform="+platform+"&network="+network,token).subscribe((r)=>{
         this.wait();
         resolve(r);
       },(err)=>{
@@ -720,5 +722,93 @@ export class NetworkService {
 
   save_privacy(addr: string, secret: string) {
     return this.httpClient.post(environment.server+"/api/save_privacy/",{addr:addr,secret:encrypt(secret)});
+  }
+
+  extract_zip(file:any) {
+    return this.httpClient.post(environment.server+"/api/extract_zip/",file);
+  }
+
+  get_collections(owners_or_collections: string,network="",detail=false) {
+    if(network.length==0)network=this.network;
+    return this.httpClient.get<Collection[]>(environment.server+"/api/collections/"+owners_or_collections+"/?network="+network+"&detail="+detail);
+  }
+
+  create_collection(owner: string, new_collection: Collection) {
+    return this.httpClient.post(environment.server+"/api/create_collection/"+owner+"/?network="+this.network,new_collection);
+  }
+
+  get_minerpool() {
+    return this.httpClient.get(environment.server+"/api/minerpool/");
+  }
+
+  run_mintpool(limit: number=3,filter="") {
+    if(filter.length>0)filter="?filter="+filter
+    return this.httpClient.get(environment.server+"/api/async_mint/"+limit+"/"+filter);
+  }
+
+  cancel_mintpool_treatment(id: string) {
+    return this.httpClient.delete(environment.server+"/api/minerpool/"+id+"/");
+  }
+
+  edit_mintpool(ask_id:string,new_value:any) {
+    return this.httpClient.post(environment.server+"/api/minerpool/"+ask_id+"/",new_value);
+  }
+
+  //Utilisé pour afficher la liste des validateurs
+  get_validators() {
+    return this.httpClient.get<Validator[]>(environment.server+"/api/validators/");
+  }
+
+  subscribe_as_validator(ask_for="",network=""){
+    return this.httpClient.post<any>(environment.server+"/api/validators/",{"ask_for":ask_for,network:network});
+  }
+
+  set_operation_for_validator(validator_id: string, operation_id:string) {
+    return this.httpClient.put(environment.server+"/api/validators/"+validator_id+"/",{operation:operation_id});
+  }
+
+  scan_for_access(data:string,address:string) {
+    return this.httpClient.post(environment.server+"/api/scan_for_access/",{validator:decodeURIComponent(data),address:address});
+  }
+
+  _get(url: string, param: string) {
+    return this.httpClient.get<any>(url+"?"+param)
+  }
+
+  remove_validator(id:string) {
+    return this.httpClient.delete(environment.server+"/api/validators/"+id+"/");
+  }
+
+
+  getyaml(filename:string) {
+    return this.httpClient.get<string>(environment.server+"/api/getyaml/"+filename)
+  }
+
+  delete_ask(id: string) {
+    return this.httpClient.delete(environment.server+"/api/minerpool/"+id+"/");
+  }
+
+  open_gallery(id: string | undefined) {
+    let url="";
+    if(this.isElrond() && id){
+      let suffixe="/"+id;
+      if(id.split("-").length==3){
+        suffixe="/nfts/"+id;
+      }else {
+        if (!id.startsWith("erd")) suffixe = "/collections/" + id;
+      }
+      url="https://"+(this.isMain() ? "" : "devnet.")+"inspire.art"+suffixe;
+    }
+
+    open(url,"gallery")
+  }
+
+  access_code_checking(access_code: string, address: string) {
+    return this.httpClient.get(environment.server+"/api/access_code_checking/"+access_code+"/"+address+"/");
+  }
+
+  upload_attributes(config_name:string,file:string) {
+    //Associer un fichier d'attributs au visuel des calques
+    return this.httpClient.post(environment.server+"/api/upload_attributes_file/"+config_name+"/",file);
   }
 }

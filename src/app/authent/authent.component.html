@@ -1,7 +1,40 @@
-<div style="width: 100%;text-align: center;position: relative;height: 100%;">
+<div style="width: 100%;text-align: center;position: relative;">
+  <div *ngIf="collections.length>0">
+    Pour vous authentifier vous devez posséder un NFT de la collection
+    <span *ngFor="let col of collections">
+      <a [href]="col.link" target="_blank">{{col.name}}</a>,
+    </span>
+  </div>
+  <br>
+
+  <mat-form-field appearance="fill" style="width:300px;font-size: large;" *ngIf="showAccesCode">
+    <mat-label>Votre code d'accès</mat-label>
+    <input matInput type="text" maxlength="8" [(ngModel)]="access_code" (ngModelChange)="connect('code')">
+    <mat-hint>Ce code se trouve dans le mail reçu à la création de votre wallet</mat-hint>
+  </mat-form-field>
+  <br>
 
 
-  <mat-form-field appearance="fill" style="min-width: 320px;width:60%;max-width: 600px;" *ngIf="!strong">
+  <div style="display: inline-block;">
+    <asl-google-signin-button *ngIf="showGoogle" type="standard" size="medium" style="display: inline-block;"
+                              title="Authentification simplifiée pour les utisateurs de gmail">
+    </asl-google-signin-button>
+  </div>
+
+
+
+<!--  <button type="button"  mat-raised-button mat-button (click)="connect('google')"-->
+<!--          title="Authentification simplifiée pour les utisateurs de gmail"-->
+<!--          *ngIf="showGoogle">-->
+<!--    Via Google-->
+<!--  </button>-->
+
+  <span *ngIf="showGoogle && showAddress" style="margin: 10px;">
+    ou
+  </span>
+
+
+  <mat-form-field appearance="fill" style="min-width: 320px;width:60%;max-width: 500px;" *ngIf="showAddress">
     <mat-label>{{intro_message}}</mat-label>
     <input matInput type="text" [(ngModel)]="address" (ngModelChange)="update_address()">
     <mat-icon matSuffix (click)="address=''">cancel</mat-icon>
@@ -10,50 +43,72 @@
 
 
 
-  <div style="margin-top:15px;text-align: center;width: 100%;" *ngIf="address.length<20" >
+  <br>
 
-        <h3>Wallet connect</h3>
-        <img [src]="qrcode" style="max-width: 250px;width: 80%;">
-        <br>
 
-    <br><br>
-    Se connecter avec votre wallet sur<br>
-    <button type="button" mat-raised-button mat-button
-            *ngIf="api.isSolana(network) && (api.installed_wallet().indexOf('phantom')>-1 || api.installed_wallet().indexOf('solflare')>-1) && showNetwork"
-            (click)="open_wallet()">
-      Solana
+  <app-scanner *ngIf="showWebcam" [size]="size"
+               title="Montrer le QRcode de votre wallet à cette caméra"
+               (flash)="on_flash($event)"
+               (cancel)="cancel_webcam()"
+               (click)="update_dynamic_token()">
+  </app-scanner>
+
+  <!--  voir les commentaire sur le dynamic token dans le fichier d'opération de référence-->
+  <div *ngIf="showDynamicToken">
+    <button type="button" color="primary"
+            mat-raised-button
+            mat-button
+            (click)="update_dynamic_token()" >
+      Coller le token
     </button>
-
-    <button type="button" mat-raised-button mat-button
-            *ngIf="showNetwork && api.installed_wallet().indexOf('maiar')>-1"
-            (click)="open_wallet()">
-      Elrond
-    </button>
-
-    <button type="button" color="primary"  mat-raised-button mat-button (click)="connect('google')" *ngIf="showGoogle">
-      Google
-    </button>
-
   </div>
 
-  <mat-form-field appearance="fill" style="width:300px;font-size: large;" *ngIf="showAccesCode">
-    <mat-label>Votre code d'accès</mat-label>
-    <input matInput type="number" [(ngModel)]="access_code" (ngModelChange)="connect('code')">
-  </mat-form-field>
+
+  <!--  Le validator est un qrcode équivalent à wallet connect mais destiné à nfluent wallet-->
+  <div style="width: 100%;text-align: center">
+    <div style="width: fit-content;display: inline-block" *ngIf="showNfluentWalletConnect">
+      <img
+        title="Flasher avec votre wallet nfluent"
+        [cdkCopyToClipboard]="nfluent_wallet_connect_qrcode"
+        [src]="nfluent_wallet_connect_qrcode"
+        style="cursor: copy;margin: 10px;" [style.width]="size"><br>
+      <small>{{title}}</small>
+    </div>
+    <img [src]="qrcode" *ngIf="showWalletConnect"
+         title="Flasher avec un wallet compatible wallet connect"
+         style="max-width: 150px;margin: 10px;" [style.width]="size">
+  </div>
 
 
-  <div id="cmdPanel" style="margin-left:10%;margin-top:5%;width: 80%;text-align: center;" *ngIf="!strong">
+
+  <div style="margin-top:15px;text-align: center;width: 100%;" *ngIf="address.length<20" >
+    <div *ngIf="showNetwork">
+      Se connecter avec votre wallet sur<br>
+      <button type="button" mat-raised-button mat-button
+              *ngIf="api.isSolana(network) && (api.installed_wallet().indexOf('phantom')>-1 || api.installed_wallet().indexOf('solflare')>-1)"
+              (click)="open_wallet()">
+        Solana
+      </button>
+
+      <button type="button" mat-raised-button mat-button
+              *ngIf="api.installed_wallet().indexOf('maiar')>-1"
+              (click)="open_wallet()">
+        Elrond
+      </button>
+    </div>
+  </div>
 
 
+  <div id="cmdPanel" style="margin-left:10%;margin-top:5%;width: 80%;text-align: center;" *ngIf="(showAddress || showAccesCode)">
     <button type="button" mat-raised-button mat-button
-            title="Ne pas se connecter"
+            title="Ne pas se connecter" *ngIf="showCancel"
             (click)="oncancel.emit()">
       Annuler
     </button>
 
     <button type="button" mat-raised-button mat-button
             title="Ne pas se connecter" color="primary"
-            [disabled]="user.addr.length<20 && user.addr.indexOf('@')==-1"
+            [disabled]="address.length<20 && address.indexOf('@')==-1"
             (click)="validate()">
       Valider
     </button>

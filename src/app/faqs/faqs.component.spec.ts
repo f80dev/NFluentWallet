@@ -1,24 +1,24 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { MywalletComponent } from './mywallet.component';
+import { FaqsComponent } from './faqs.component';
 import {HttpClientModule} from "@angular/common/http";
-import {MatSnackBarModule} from "@angular/material/snack-bar";
 import {RouterTestingModule} from "@angular/router/testing";
+import {MatSnackBarModule} from "@angular/material/snack-bar";
 
-describe('MywalletComponent', () => {
-  let component: MywalletComponent;
-  let fixture: ComponentFixture<MywalletComponent>;
+describe('FaqsComponent', () => {
+  let component: FaqsComponent;
+  let fixture: ComponentFixture<FaqsComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [ MywalletComponent ],
-      imports: [HttpClientModule,MatSnackBarModule,RouterTestingModule]
+      declarations: [ FaqsComponent ],
+      imports: [HttpClientModule,RouterTestingModule,MatSnackBarModule]
     })
     .compileComponents();
   });
 
   beforeEach(() => {
-    fixture = TestBed.createComponent(MywalletComponent);
+    fixture = TestBed.createComponent(FaqsComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });

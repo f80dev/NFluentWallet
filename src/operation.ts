@@ -6,6 +6,38 @@ export interface Collection {
   description: string | undefined
   owner : string | undefined
   price: number | undefined
+  type: string | undefined
+  link: string | ""
+
+  options: {
+    canFreeze: boolean | true
+    canWipe: boolean | true
+    canPause: boolean | true
+    canTransferNFTCreateRole: boolean | true
+    canChangeOwner: boolean | true
+    canUpgrade: boolean | true
+    canAddSpecialRoles: boolean | true
+  }
+}
+
+export interface Connexion {
+  on_device: boolean | false
+  address: boolean | false
+  wallet_connect: boolean | false
+  email: boolean | false
+  google: boolean | false
+  webcam: boolean | false
+  nfluent_wallet_connect: boolean | false            //QRCode proposé par nfluent en substitution de Wallet Connect à utiliser depuis le wallet nfluent
+}
+
+export interface Source {
+  active: boolean
+  type: "database" | "network" | "file"
+  connexion: string
+  filter: any | null
+  owner: string | null
+  dbname: string | null
+  collections: string[] | null
 }
 
 //Description de la structure d'une opération
@@ -29,21 +61,14 @@ export interface Operation {
   } | null
 
   data: {
-    sources: {
-      type: string
-      connexion: string
-      filter: any | null
-      owner: string | null
-      dbname: string | null
-    }[]
+    sources: Source[]
   }
 
   lazy_mining :{
     metadata_storage: string
     content_storage: string
-    network: string
     miner: string
-  }
+  } | null
 
   candymachine : {
     visible: boolean
@@ -57,6 +82,8 @@ export interface Operation {
       total: number
       per_user: number
     }
+
+    connexion: Connexion
   }
 
   validate:{
@@ -66,6 +93,7 @@ export interface Operation {
     manual_input: boolean
 
     application: string
+    authentification: Connexion
 
     users: string[]
     support: {
@@ -92,8 +120,16 @@ export interface Operation {
       ]
 
       success : {
-        message: string
-        api: string
+        message: string | ""
+        api: string | ""
+        redirect: string | ""
+        redirect_user: string | ""
+      }
+
+      fault: {
+        message: string | ""
+        api: string | ""
+        redirect: string | ""
       }
     }
 
@@ -157,6 +193,12 @@ export interface Operation {
 
   nftlive: {
     collections:string[]
+    dynamic_fields:[{
+      name: string
+      maxlen: number | 30
+      value: string | ""
+      message: string | ""
+    }]
     nft_target: {
       collection: string
       name: string
@@ -195,16 +237,48 @@ export interface Operation {
 
   dispenser: {
     visible: boolean
-    miner: string
     application: string
-
-    collections:       {
-      name: string
-      limit: number
-    }[]
+    collections: string[]
+    authentification: Connexion
   } | null
 
-  lottery: any | null
+  airdrop: {
+    visible: boolean
+    collections: string[]
+  } | null
+
+  lottery: {
+    image_code: string | ""
+    iframe_code: string | ""
+    visible: boolean
+    miner: string | null
+    screen: any
+    end_process:{
+      winner: {
+        message:string
+        redirection:string
+      }
+      looser:{
+        message:string
+        redirection: string
+      }
+    }
+    authentification: Connexion
+
+    messages:{
+      title:string | "Flasher ce QRCode pour recevoir ce NFT"
+    } | undefined
+
+    application: string | "$nfluent_appli$/contest"
+    collections: [string]
+    limits:any | null
+    duration:number | 100
+    period:{
+      dtStart: string | "now"
+      dtEnd: string | ""
+      duration: number | 1
+    }
+  } | null
 
 }
 

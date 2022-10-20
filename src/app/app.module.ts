@@ -1,5 +1,5 @@
 import { NgModule } from '@angular/core';
-import {GoogleLoginProvider, SocialAuthServiceConfig, SocialLoginModule} from 'angularx-social-login';
+import {GoogleLoginProvider, SocialAuthServiceConfig, SocialLoginModule} from '@abacritt/angularx-social-login';
 import { BrowserModule } from '@angular/platform-browser';
 import { RouterModule, Routes } from '@angular/router'
 import { AppComponent } from './app.component';
@@ -24,6 +24,10 @@ import {UploadFileComponent} from "./upload-file/upload-file.component";
 import {FormsModule} from "@angular/forms";
 import {GOOGLE_CLIENT_ID} from "../definitions";
 import {AuthentComponent} from "./authent/authent.component";
+import {ScannerComponent} from "./scanner/scanner.component";
+import {SplashComponent} from "./splash/splash.component";
+import {FaqsComponent} from "./faqs/faqs.component";
+import {MatExpansionModule} from "@angular/material/expansion";
 
 const routes: Routes = [
   { path: '', component: MywalletComponent }
@@ -35,15 +39,18 @@ Tester le wallet : http://wallet.nfluent.io/?param=YWRkcj1lcmQxNmNrNjJlZ252bXVza
  */
 
 @NgModule({
-  declarations: [
-    AppComponent,
-    UploadFileComponent,
-      AuthentComponent,
-    LoginComponent,
-    MywalletComponent,
-    ReverseblocComponent,
-    HourglassComponent
-  ],
+    declarations: [
+        AppComponent,
+        UploadFileComponent,
+        AuthentComponent,
+        ScannerComponent,
+        FaqsComponent,
+        LoginComponent,
+        MywalletComponent,
+        ReverseblocComponent,
+        HourglassComponent,
+        SplashComponent
+    ],
   imports: [
     BrowserModule,
     HttpClientModule,
@@ -52,6 +59,7 @@ Tester le wallet : http://wallet.nfluent.io/?param=YWRkcj1lcmQxNmNrNjJlZ252bXVza
     MatButtonModule,
     WebcamModule,
     SocialLoginModule,
+      MatExpansionModule,
     MatInputModule,
     MatSnackBarModule,
     MatProgressSpinnerModule,

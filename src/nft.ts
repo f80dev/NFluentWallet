@@ -5,6 +5,7 @@ export interface Creator {
   verified:number
   share:number
 }
+
 export interface SplTokenInfo {
   mint:string
   owner:string
@@ -13,15 +14,18 @@ export interface SplTokenInfo {
   address:string
   isFrozen:boolean
 }
+
 export interface SplMintInfo {
   mintAuthority:string
   supply:string
   decimal:number
 }
+
 export interface Attribute {
   trait_type:string
   value:string
 }
+
 export interface MetadataExternal {
   name:string
   description:string
@@ -53,6 +57,7 @@ export interface MetadataOnChain {
     creators:Creator[]
   }
 }
+
 export interface Search {
   collection:string
   metadata:string
@@ -61,7 +66,7 @@ export interface Search {
 
 
 export interface NFT {
-  collection:Collection
+  collection:Collection | null
   symbol:string
   network: string | undefined
   attributes:{
@@ -69,6 +74,7 @@ export interface NFT {
     value: string
   }[]
   name:string
+  tags:string | ""
   description:string
   visual:string
   creators: any[]
@@ -96,3 +102,19 @@ export interface SolanaToken {
   metadataOffchain:MetadataExternal,
   search:Search
 }
+
+
+
+export interface Validator {
+  id:string
+  name: string | ""
+  ask: string | ""
+  user: string | ""
+  dtLastConnexion: number | 0
+  delayFromStart: number | 0
+  dtStart: number | 0
+  nfts: number | 0
+  qrcode_accesscode: string | ""
+  access_code:string | ""
+}
+

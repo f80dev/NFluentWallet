@@ -1,0 +1,16 @@
+<div style="width:fit-content;display: inline-block;padding:5px;" class="mat-elevation-z8">
+  <webcam
+  [height]="_size"
+  [width]="_size"
+  [trigger]="triggerObservable"
+  [allowCameraSwitch]="false"
+  [imageQuality]="imageQuality"
+  [captureImageData]="true"
+  imageType="image/jpeg"
+  (initError)="webcamError()"
+  (imageCapture)="handleImage($event)">
+</webcam><br>
+  <span style="font-size: x-small">{{caption}}</span>
+
+</div>
+

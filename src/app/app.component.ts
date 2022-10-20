@@ -7,4 +7,9 @@ import { Component } from '@angular/core';
 })
 export class AppComponent {
   title = 'NFluentWallet';
+  showSplash: any=true;
+
+  constructor() {
+    setTimeout(()=>{this.showSplash=false;},1500);
+  }
 }

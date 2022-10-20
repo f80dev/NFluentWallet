@@ -1,0 +1,14 @@
+xcopy ..\NFTCalvi\src\app\authent\*.* src\app\authent\
+xcopy ..\NFTCalvi\src\app\mywallet\*.* src\app\mywallet\
+xcopy ..\NFTCalvi\src\app\faqs\*.* src\app\faqs\
+xcopy ..\NFTCalvi\src\app\reversebloc\*.* src\app\reversebloc\
+xcopy ..\NFTCalvi\src\app\splash\*.* src\app\splash\
+xcopy ..\NFTCalvi\src\app\network.service.ts src\app\
+xcopy ..\NFTCalvi\src\app\operation.service.ts src\app\
+xcopy ..\NFTCalvi\src\app\nfluent.scss src\app\
+xcopy ..\NFTCalvi\src\app\hourglass\*.*  src\app\hourglass\
+xcopy ..\NFTCalvi\src\app\scanner\*.*  src\app\scanner\
+xcopy ..\NFTCalvi\src\app\upload-file\*.*  src\app\upload-file\
+xcopy ..\NFTCalvi\src\operation.ts src\
+xcopy ..\NFTCalvi\src\tools.ts src\
+xcopy ..\NFTCalvi\src\nft.ts src\
