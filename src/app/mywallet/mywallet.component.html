@@ -1,53 +1,59 @@
 <div style="position: fixed;right:0px;top:0px;display: block;height:20px;color: lightgray;" *ngIf="network.network.indexOf('devnet')>-1">DevNet</div>
-<mat-tab-group [selectedIndex]="indexTab" (selectedIndexChange)="refresh($event)"
+<mat-tab-group [selectedIndex]="indexTab"
+               (selectedIndexChange)="refresh($event)"
                style="padding: 10px;width:100%;  text-align: center;">
   <mat-tab [label]="tab_title">
+    <div style="display: flex;margin-top: 10px;flex-wrap: wrap;justify-content: center;align-items: center;">
 
-    <table style="display: inline-block;width:fit-content;width:100%;"><tr>
-      <td>
-        <button type="button" mat-raised-button mat-button style="width: 90px;"
-                  *ngIf="qrcode_addr.length==0"
-                  (click)="show_elrond_addr()">
-        Recevoir
-      </button></td>
-      <td>
-        <mat-icon (click)="force_refresh()" style="cursor: pointer;font-size: x-large;">refresh</mat-icon>
-        <mat-icon (click)="open_inspire()" style="cursor: pointer;font-size: x-large;">visibility</mat-icon>
-      </td>
-      <td>
-        <mat-form-field style="min-width: 100px;width: 60%;max-width:500px;font-size: medium;">
-          <mat-label>Collections:</mat-label>
-          <mat-select [(value)]="sel_collection" (selectionChange)="force_refresh()">
-            <mat-option *ngFor="let col of collections" [value]="col">
-              {{col.name}}
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
-      </td>
-    </tr></table>
+        <button mat-icon-button (click)="show_elrond_addr()"
+                title="Recevoir directement d'autres NFT"
+                *ngIf="qrcode_addr.length==0">
+          <mat-icon>download</mat-icon>
+        </button>
+        <button mat-icon-button (click)="force_refresh()"
+                title="Rafraichir l'écran">
+          <mat-icon>refresh</mat-icon>
+        </button>
+        <button mat-icon-button (click)="open_inspire()"
+                title="Voir dans Inspire.art">
+          <mat-icon>visibility</mat-icon>
+        </button>
 
-    <br>
+        <mat-slider [max]="500" [min]="100" title="Taille des NFTs affichés"
+                    style="margin-left: 10px;width: 100px;">
+          <input matSliderThumb [(ngModel)]="nft_size">
+        </mat-slider>
+
+
+        <app-input [options]="collections"
+                   label="Collections"
+                   *ngIf="nfts.length>3 || sel_collection.id!='*'"
+                   [value]="sel_collection" (valueChange)="force_refresh($event)">
+        </app-input>
+
+    </div>
     <app-hourglass [message]="message"></app-hourglass>
-    <br>
 
     <div *ngIf="qrcode_addr.length>0">
       <br>
       Utiliser ce QRCode pour recevoir des NFT<br>
       <img [src]="qrcode_addr" style="width: 200px;" [cdkCopyToClipboard]="addr" (click)="qrcode_addr=''">
     </div>
-
+    <br>
 
     <app-reversebloc *ngFor="let nft of nfts"
                      [image]="nft.visual"
-                     width="300px" height="300px"
+                     margin="15px"
+                     [style]="{backgroundColor:'0xFEFEFE',border: '1px solid lightgray'}"
+                     [width]="nft_size+'px'" [height]="nft_size+'px'"
                      [data]="nft"
                      (onreverse)="on_reverse($event)">
 
-      <div style="padding: 10px;">
-        <div class="mat-body-2">{{nft.collection!.name}}</div>
-        <div class="mat-title">{{nft.name}}</div>
+      <div style="width: 90%;padding:5%;overflow: hidden;">
+        <div class="mat-body-2" *ngIf="nft.collection">{{nft.collection!.name}}</div>
+        <div style="margin-top: 10px;" [style.font-size]="(nft_size || 100)/10+'px'">{{nft.name}}</div>
         <br>
-        <div class="mat-body-2">{{nft.description}}</div><br>
+        <div class="mat-body-2" [style.font-size]="(nft_size || 100)/15+'px'">{{nft.description}}</div><br>
         <table style="width: 100%;">
           <tr *ngFor="let attr of nft.attributes" class="mat-body-2">
             <td>{{attr.trait_type}}</td>
@@ -55,10 +61,18 @@
           </tr>
         </table>
 
-        <div>
-          <a *ngFor="let file of nft.files" [href]="file" style="display: inline" target="_blank" [title]="file">
-            <mat-icon>link</mat-icon>
-          </a>
+        <div style="position: absolute;display: block;width:100%;left:5%;bottom:5%;">
+          <table>
+            <tr>
+              <td>Liens:</td>
+              <td>
+                <a *ngFor="let file of nft.files" [href]="file" style="display: inline" target="_blank" [title]="file">
+                  <mat-icon>link</mat-icon>
+                </a>
+              </td>
+            </tr>
+          </table>
+
 
         </div>
 
@@ -68,7 +82,7 @@
   </mat-tab>
 
 
-  <mat-tab label="Accès">
+  <mat-tab label="Accès" *ngIf="addr && addr.length>0">
     <div *ngIf="!showScanner">
       <br>
       <h3>Utiliser ce QRCode pour accèder à vos événements</h3>
@@ -81,55 +95,36 @@
     </div>
 
     <div *ngIf="showScanner">
-      <br><br>
+      <br>
 <!--      scanner pour assusrer la connexion au nfluent wallet connect-->
-      <app-scanner style="margin-top: 50px;"
-                   (flash)="on_scan($event)">
-      </app-scanner>
 
-      <div *ngIf="!isProd()">
-        <mat-form-field appearance="legacy" style="width: 50%;max-width: 300px;" >
-          <mat-label>Saisissez le code</mat-label>
-          <input matInput type="text" [(ngModel)]="accescode_scan">
-        </mat-form-field>
 
-        <button type="button" mat-raised-button mat-button (click)="on_scan({data:accescode_scan})">
-          Envoyer
-        </button>
+        <app-scanner style="margin-top: 50px;"
+                     (flash)="on_scan($event)">
+        </app-scanner>
+        <br>
 
+
+      <div style="width: 400px;display: inline-block;margin-top: 30px;">
+        <app-input label="Saisissez le code du QRCode à flasher" width="200px"
+                   *ngIf="!isProd()"
+                   label_button="Valider" cancel_button="Annuler"
+                   (cancel)="showScanner=false"
+                   (validate)="on_scan({data:accescode_scan})"
+                   [value]="accescode_scan" (valueChange)="accescode_scan=$event"
+                   value_type="text">
+        </app-input>
       </div>
 
-      <br>
-      <button type="button" mat-raised-button mat-button (click)="showScanner=false">
-        Annuler
-      </button>
+
     </div>
 
-
-
-    <div style="width: 100%;text-align: center;height: 30px;vertical-align: middle;margin-top: 50px;">
-      <table style="display: inline-block;">
-        <tr>
-          <td>(c) NFluenT 2022</td><td>-</td>
-          <td><a href="mailto:contact@nfluent.io"><mat-icon>mail</mat-icon></a></td>
-          <td>-</td>
-          <td>{{network.network}}</td>
-          <td>-</td>
-          <td>v{{version}}</td>
-        </tr>
-      </table>
-    </div>
+    <app-signature faq="nfluent_wallet" color="black"></app-signature>
   </mat-tab>
 
 
-
-
-  <mat-tab label="NFTlive">
-    <div *ngIf="opes.length==0"  style="margin-top: 30px;">
-      Aucune opération NFTLive n'est possible pour l'instant
-      <br><br>
-      <a [routerLink]="'faqs'" [queryParams]="{faq:'nftlive'}">En savoir plus</a> sur NFTLive
-    </div>
+  <mat-tab label="NFTlive" *ngIf="opes.length>0 && addr && addr.length>0">
+    <a [routerLink]="'faqs'" [queryParams]="{faq:'nftlive'}">En savoir plus</a> sur NFTLive
 
     <mat-form-field style="min-width: 100px;width: 60%;max-width:500px;font-size: medium;" *ngIf="opes.length>0">
       <mat-select [(value)]="sel_ope">
@@ -157,8 +152,7 @@
           <tr>
             <td style="width: 50%;">
               <webcam
-                [height]="300"
-                [width]="300"
+                [height]="300" [width]="300"
                 [trigger]="triggerObservable"
                 [allowCameraSwitch]="false"
                 [imageQuality]="0.95"
@@ -188,7 +182,7 @@
           <tr *ngFor="let field of sel_ope.nftlive.dynamic_fields">
             <td>{{field.name}}</td>
             <td>
-              <mat-form-field appearance="legacy" style="width: 100%;">
+              <mat-form-field appearance="outline" style="width: 100%;">
                 <mat-label>{{field.message}}</mat-label>
                 <input matInput [maxLength]="field.maxlen" type="text" [(ngModel)]="field.value">
               </mat-form-field>
@@ -197,10 +191,7 @@
         </table>
         <br>
       </div>
-
-
     </div>
-
 
     <div *ngIf="photos_to_send.length>0" style="width: 100%;">
       Choisissez un NFT à fabriquer<br>
@@ -246,18 +237,15 @@
       </button>
 
     </div>
-
   </mat-tab>
 
-
-
-  <mat-tab label="Préférences">
+  <mat-tab label="Préférences" *ngIf="addr && addr.length>0">
     <app-authent *ngIf="!strong"
                  message="La mise a jour de vos préférences nécéssite une authentification"
                  [address]="addr"
                  (authent)="on_authent($event)"
                  (disconnect)="on_disconnect()"
-                 [showAccesCode]="true">
+                 [showPrivateKey]="true">
     </app-authent>
 
 
@@ -293,9 +281,6 @@
         </app-upload-file>
       </div>
 
-
-
-
       <button type="button" mat-raised-button mat-button (click)="strong=false">
         Annuler
       </button>
@@ -305,13 +290,22 @@
       </button>
 
 
-
     </div>
 
   </mat-tab>
 
   <mat-tab label="Aide">
-    <app-faqs filter="nfluent_wallet"></app-faqs>
+    <div *ngIf="network.isDevnet() && addr && addr.length>0" style="text-align: left;">
+      Réseau: {{network.network}}<br>
+      Addresse: {{addr | alias}}<br><br>
+    </div>
+
+    <div style="text-align: center;width: 80%;margin:10%;display: inline-block;"  *ngIf="!addr">
+      <app-rescuewallet [network_name]="network.network.split('-')[0]"
+                        (validate)="on_rescue($event)"></app-rescuewallet>
+    </div>
+
+    <app-faqs filter="nfluent_wallet" title="Questions fréquentes"></app-faqs>
   </mat-tab>
 
 

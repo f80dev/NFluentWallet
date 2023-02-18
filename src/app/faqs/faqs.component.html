@@ -1,12 +1,12 @@
-<div class="mainform">
-  <h3>Questions fréquentes</h3>
+
+  <div class="mat-headline-5 color-primary" *ngIf="faqs.length>0">{{title}}</div>
   <mat-expansion-panel [expanded]="faq.visible" togglePosition="before"
                        class="app-panel" style="margin:5px"
                        *ngFor="let faq of faqs"
                        name="faq">
 
     <mat-expansion-panel-header collapsedHeight="60px" expandedHeight="60px" style="text-align: left;">
-      <span *ngIf="!faq.visible" class="faq-title">
+      <span *ngIf="!faq.visible" class="faq-title mat-body-2 color-primary">
         {{faq.title}}
       </span>
       <span *ngIf="faq.visible">
@@ -15,8 +15,7 @@
     </mat-expansion-panel-header>
 
     <div style="height:auto;">
-      <div style="font-size: small"
-           class="faq-content"
+      <div class="faq-content mat-body-1"
            *ngIf="!faq.content.endsWith('html') && faq.format!='html'">
         {{faq.content}}
       </div>
@@ -35,5 +34,5 @@
 
   </mat-expansion-panel>
 
-</div>
+
 

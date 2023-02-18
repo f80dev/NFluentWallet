@@ -1,6 +1,7 @@
 import {Component, EventEmitter, Input, OnInit, Output} from '@angular/core';
 import {MatSnackBar} from "@angular/material/snack-bar";
 import {showMessage} from "../../tools";
+import {MAX_FILE_SIZE} from "../../definitions";
 
 @Component({
   selector: 'app-upload-file',
@@ -18,11 +19,13 @@ export class UploadFileComponent implements OnInit {
   @Input() width:string="fit-content";
   @Input("encode") encode=true;
   @Input() format="binary";
-  @Input("maxsize") maxsize:number=10000000000000;
+  @Input() can_drop:boolean=true;
+  @Input("maxsize") maxsize:number=MAX_FILE_SIZE;
   @Input("show_cancel") show_cancel:boolean=false;
   @Output("uploaded") onupload:EventEmitter<any>=new EventEmitter();
   @Output("canceled") oncancel:EventEmitter<any>=new EventEmitter();
   @Input("extensions") extensions:string="*"; //format: accept=".doc,.docx"  ou "accept="audio/*"
+
 
 
   constructor(
@@ -32,13 +35,13 @@ export class UploadFileComponent implements OnInit {
   ngOnInit(): void {
   }
 
-
   cancel(){
     this.oncancel.emit();
   }
 
   import(fileInputEvent: any) {
-    for(let file of fileInputEvent.target.files){
+    let files=fileInputEvent.hasOwnProperty("isTrusted") ? fileInputEvent.target.files : fileInputEvent;
+    for(let file of files){
       file.reader = new FileReader();
       if (file.size < this.maxsize) {
         this.filename = file.name;
@@ -73,7 +76,7 @@ export class UploadFileComponent implements OnInit {
         }
 
       } else {
-        showMessage(this, "La taille limite des fichier est de " + Math.round(this.maxsize / 1024) + " ko");
+        showMessage(this, "La taille limite des fichier est de " + Math.round((this.maxsize / 1024)/1024) + " Mo",10000);
         this.message = "";
         this.oncancel.emit();
       }

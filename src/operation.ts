@@ -1,12 +1,13 @@
 //Description d'une collection
 export interface Collection {
-  name: string | undefined
-  id: string | undefined
+  name:string
+  id: string
   visual: string | undefined
   description: string | undefined
   owner : string | undefined
   price: number | undefined
   type: string | undefined
+  roles: any[] | undefined
   link: string | ""
 
   options: {
@@ -40,6 +41,19 @@ export interface Source {
   collections: string[] | null
 }
 
+//Section contenant les différents messages affiché aux clients
+export interface Messages {
+  confirm: string
+  title: string
+  subtitle: string | ""
+  prompt: string | null
+  cancel: string | null
+  question: string | null
+  help: string | ""             //Lien internet pointant vers une aide
+}
+
+
+
 //Description de la structure d'une opération
 //Voir le fichier yaml commenté pour le détail des sections
 export interface Operation {
@@ -50,15 +64,38 @@ export interface Operation {
   version: string
   network: string
   metadatastorage: string
+  format: "yamlv1" | "yamlv2"
+  warning: string | ""                //Message sur l'opération elle-même (problème de syntaxe par exemple ou solde insuffisant)
 
   collections:Collection[]
 
-  database: any | null
+  database: {
+    connexion: string
+    dbname: string
+  } | null
   accounts: any | null
 
   branding: {
-    style: any
-  } | null
+    appname:string
+    splash_visual: string
+    claim:string | ""
+    style: any | {}
+    reverse_card: any | {}
+  }
+
+  new_account: {
+    mail: string | ""
+    max_account_by_email: number
+    to_start: {
+      money: string
+      bank: string
+      amount: number
+    } | null
+  }
+
+  transfer : {
+    mail: string | ""
+  }
 
   data: {
     sources: Source[]
@@ -67,16 +104,18 @@ export interface Operation {
   lazy_mining :{
     metadata_storage: string
     content_storage: string
-    miner: string
+    networks:[{
+        network: string
+        miner: string
+        collection: string
+      }]
   } | null
 
   candymachine : {
     visible: boolean
     collections:string[]
 
-    messages:{
-      title: string
-    }
+    messages: Messages
 
     limit: {
       total: number
@@ -165,6 +204,11 @@ export interface Operation {
       to: number
     }
 
+    apparence: {
+      size: string
+      fontsize: string
+    }
+
     collections:{
       name: string
       price: number | null
@@ -173,6 +217,7 @@ export interface Operation {
 
     support:any | null
 
+    messages: Messages
 
     prestashop: {
       server: string
@@ -199,12 +244,14 @@ export interface Operation {
       value: string | ""
       message: string | ""
     }]
+
     nft_target: {
       collection: string
       name: string
       miner: string
       dimensions: string
       royalties: number
+      configuration: string
       quality:number | 90
 
       permissions:{
@@ -215,7 +262,6 @@ export interface Operation {
     }
 
     price: number
-    configuration: string
     limit: number
 
     period:             {
@@ -240,6 +286,12 @@ export interface Operation {
     application: string
     collections: string[]
     authentification: Connexion
+
+    mailing_list: boolean | true
+
+    messages: Messages
+
+    selfWalletConnection: boolean
   } | null
 
   airdrop: {
@@ -265,9 +317,7 @@ export interface Operation {
     }
     authentification: Connexion
 
-    messages:{
-      title:string | "Flasher ce QRCode pour recevoir ce NFT"
-    } | undefined
+    messages: Messages
 
     application: string | "$nfluent_appli$/contest"
     collections: [string]
@@ -280,6 +330,11 @@ export interface Operation {
     }
   } | null
 
+  nfts : [{
+    storage: string
+    data: string
+  }]
+
 }
 
 export function find_collection(ope:Operation,name:string) : Collection | null {
@@ -287,6 +342,22 @@ export function find_collection(ope:Operation,name:string) : Collection | null {
     if(c.name==name)return c;
   }
   return null;
+}
+
+//Permet d'extraire des informations d'une operation de facçon simple (moins de code)
+export function get_in(obj:any | null,fields:string,_default:any=null) : any {
+  if(!obj)return _default;
+
+  let rc={...obj};
+  for(let field of fields.split(".")){
+    if(rc.hasOwnProperty(field)){
+      // @ts-ignore
+      rc=rc[field];
+    }else{
+      return _default;
+    }
+  }
+  return rc;
 }
 
 

@@ -4,7 +4,9 @@
 
 export const environment = {
   production: false,
-  version: "0.1.4",
+  version: "0.1.6",
+  mail: "contact@nfluent.io",
+  forum: "",
   server:"http://127.0.0.1:4242",
   appname:"NFluent Wallet",
   appli:"http://127.0.0.1:4200"

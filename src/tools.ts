@@ -1,9 +1,11 @@
 import {environment} from "./environments/environment";
 import {ActivatedRoute} from "@angular/router";
+import {NFT} from "./nft";
+import {Clipboard} from "@angular/cdk/clipboard";
 
 export interface CryptoKey {
   name: string
-  pubkey: string
+  address: string
   privatekey:string | null
   encrypt:string | null
   balance:number | null
@@ -18,6 +20,21 @@ export function url_wallet(network:string) : string {
   } else {
     return "";
   }
+}
+
+
+
+
+export function hashCode(s:string):number {
+  var hash = 0,
+    i, chr;
+  if (s.length === 0) return hash;
+  for (i = 0; i < s.length; i++) {
+    chr = s.charCodeAt(i);
+    hash = ((hash << 5) - hash) + chr;
+    hash |= 0; // Convert to 32bit integer
+  }
+  return hash;
 }
 
 
@@ -39,6 +56,7 @@ export function encodeUnicode(str:string) {
 
 
 export function encrypt(s:string) : string {
+  //TODO fonction a terminer
   return btoa(s);
 }
 
@@ -68,7 +86,7 @@ export function setParams(_d:any,prefix="") : string {
   let rc=[];
   for(let k of Object.keys(_d)){
     if(typeof(_d[k])=="object")_d[k]="b64:"+btoa(JSON.stringify(_d[k]));
-    rc.push(k+"="+_d[k]);
+    rc.push(k+"="+encodeURIComponent(_d[k]));
   }
   let url=encrypt(prefix+rc.join("&"));
   return encodeURIComponent(url);
@@ -81,7 +99,7 @@ function analyse_params(params:string):any {
   let rc:any={};
   for(let _param of _params) {
     let key = _param.split("=")[0];
-    let value: any = _param.split("=")[1];
+    let value: any = decodeURIComponent(_param.split("=")[1]);
 
     $$("Récupération de " + _param);
     if (value.startsWith("b64:")) {
@@ -98,8 +116,9 @@ function analyse_params(params:string):any {
   return rc;
 }
 
-export function now(){
+export function now(format="number") : number | string {
   let rc=new Date().getTime();
+  if(format=="hex")return rc.toString(16);
   return rc
 }
 
@@ -108,8 +127,9 @@ export function now(){
 export function getParams(routes:ActivatedRoute,local_setting_params="") {
   return new Promise((resolve, reject) => {
     routes.queryParams.subscribe((params:any) => {
+      if(params.hasOwnProperty("params"))params["param"]=params["params"];
       if(params.hasOwnProperty("param")){
-        let rc=analyse_params(params["param"]);
+        let rc=analyse_params(decodeURIComponent(params["param"]));
         if(local_setting_params.length>0)localStorage.setItem(local_setting_params,params["param"]);
         resolve(rc);
       } else {
@@ -136,9 +156,7 @@ export function getParams(routes:ActivatedRoute,local_setting_params="") {
 }
 
 export function decrypt(s:string | any) : string {
-  if(s)
-    return atob(s);
-
+  if(s)return atob(s);
   return "";
 }
 
@@ -149,10 +167,6 @@ export function toStringify(obj:any) {
       ? value.toString()
       : value // return everything else unchanged
   );
-}
-
-export function getExplorer(addr: string | undefined,network="solana-devnet") {
-  return "https://solscan.io/account/"+addr+"?cluster="+network.replace("solana-","");
 }
 
 export function syntaxHighlight(json:any) {
@@ -203,7 +217,7 @@ export function showMessage(vm:any,s:string="",duration=4000,func:any= null,labe
   $$("Affichage du message :",s)
   if(s.startsWith("#")){
     //Affichage en mode plein écran
-    s=s.substr(1);
+    s=s.substring(1);
     vm.message=s;
     if(s.length>0)setTimeout(()=>{vm.showMessage=true;},500);
   } else {
@@ -290,8 +304,57 @@ export function $$(s: string, obj: any= null) {
   if (lg.indexOf('!!') > -1) {alert(lg); }
 }
 
-export function detect_network(addr:string) {
-  if(addr.length<20 || addr.indexOf("@")>-1)return null;
+
+export function copyAchievements(clp:Clipboard,to_copy:string) {
+  return new Promise((resolve, reject) => {
+    const pending = clp.beginCopy(to_copy);
+    let remainingAttempts = 3;
+    const attempt = () => {
+      const result = pending.copy();
+      if (!result && --remainingAttempts) {
+        setTimeout(()=>{
+          resolve(true);
+        });
+      } else {
+        // Remember to destroy when you're done!
+        pending.destroy();
+      }
+    };
+  });
+
+}
+
+export function canTransfer(nft:NFT,by_addr:string) : boolean {
+  //canMint
+  //Détermine si un NFT peut être transférer d'une blockchain à une autre
+  if(nft.address && (nft.address.startsWith("db_") || nft.address.startsWith("file_"))){
+    if(nft.marketplace?.quantity==0)return false;
+    if(nft.miner!="" && nft.miner!=by_addr)return false;
+    return true;
+  } else {
+    if(by_addr==nft.owner)return true;
+  }
+  return false;
+}
+
+
+
+export function find(liste:any[],elt_to_search:any,index_name:any=0){
+  let rc=0;
+  for(let item of liste){
+    if(typeof elt_to_search=="object") {
+      if (item[index_name] == elt_to_search[index_name]) return rc;
+    } else {
+      if(item[index_name]==elt_to_search) return rc;
+    }
+    rc=rc+1;
+  }
+  return -1;
+}
+
+//Alias find_network et get_network
+export function detect_network(addr:string) : string {
+  if(addr.length<20 || addr.indexOf("@")>-1)return "";
   if(addr.startsWith("erd"))return "elrond";
   if(addr.length>50 && addr.endsWith("="))return "access_code";
   return "solana";
@@ -300,5 +363,20 @@ export function detect_network(addr:string) {
 export function detect_type_network(network:string){
   if(network.indexOf("devnet")>-1)return "devnet";
   return "mainnet";
+}
+
+export function jsonToList(obj:any):string {
+  let rc="<ul>";
+  for(let k of Object.keys(obj)){
+    rc=rc+"<li><strong>"+k+"</strong>: "+obj[k]+"</li>"
+  }
+  return rc+"</ul>";
+}
+
+
+export function isEmail(addr="") {
+  if(!addr)return false;
+  const expression: RegExp = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
+  return expression.test(addr);
 }
 

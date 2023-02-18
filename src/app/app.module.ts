@@ -28,9 +28,21 @@ import {ScannerComponent} from "./scanner/scanner.component";
 import {SplashComponent} from "./splash/splash.component";
 import {FaqsComponent} from "./faqs/faqs.component";
 import {MatExpansionModule} from "@angular/material/expansion";
+import {SignatureComponent} from "./signature/signature.component";
+import {InputComponent} from "./input/input.component";
+import {MatSliderModule} from "@angular/material/slider";
+import {RescuewalletComponent} from "./rescuewallet/rescuewallet.component";
+import {AliasPipe} from "./alias.pipe";
+import {DeviceService} from "./device.service";
+import {SocketIoConfig, SocketIoModule} from "ngx-socket-io";
+import {environment} from "../environments/environment";
+
+const config: SocketIoConfig = { url: environment.server, options: {} };
 
 const routes: Routes = [
-  { path: '', component: MywalletComponent }
+  { path: '', component: MywalletComponent },
+    { path: 'rescue', component: RescuewalletComponent },
+    { path: 'rescuewallet', component: RescuewalletComponent }
 ]
 
 /*
@@ -41,10 +53,15 @@ Tester le wallet : http://wallet.nfluent.io/?param=YWRkcj1lcmQxNmNrNjJlZ252bXVza
 @NgModule({
     declarations: [
         AppComponent,
+        AliasPipe,
         UploadFileComponent,
         AuthentComponent,
+        RescuewalletComponent,
         ScannerComponent,
         FaqsComponent,
+        InputComponent,
+
+        SignatureComponent,
         LoginComponent,
         MywalletComponent,
         ReverseblocComponent,
@@ -52,11 +69,13 @@ Tester le wallet : http://wallet.nfluent.io/?param=YWRkcj1lcmQxNmNrNjJlZ252bXVza
         SplashComponent
     ],
   imports: [
+      SocketIoModule.forRoot(config),
     BrowserModule,
     HttpClientModule,
     FormsModule,
     MatIconModule,
     MatButtonModule,
+      MatSliderModule,
     WebcamModule,
     SocialLoginModule,
       MatExpansionModule,
@@ -72,7 +91,8 @@ Tester le wallet : http://wallet.nfluent.io/?param=YWRkcj1lcmQxNmNrNjJlZ252bXVza
     MatSelectModule
   ],
   providers: [
-    {provide: 'SocialAuthServiceConfig',
+      AliasPipe, DeviceService,
+      {provide: 'SocialAuthServiceConfig',
       useValue: {
         autoLogin: false,
         providers: [
