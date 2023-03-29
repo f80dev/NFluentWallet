@@ -3,8 +3,8 @@
   "version": "0.0.1",
   "scripts": {
     "ng": "ng",
-    "start": "ng serve --open --live-reload",
-    "start_4202": "ng serve --open --live-reload --port 4202",
+    "start": "ng serve --live-reload --port 4200",
+    "start_4202": "ng serve --live-reload --port 4202",
     "build": "ng build",
     "deploy": "ng build --aot --output-hashing=all && gh-pages -d ./dist/nfluent-wallet --repo https://github.com/f80dev/NFluentWallet.git -f -t true -b gh-pages -m \"update from gh-pages\"",
     "deploy debug": "ng build --output-hashing=all --configuration=debug && gh-pages -d ./dist/nfluent-wallet --repo https://github.com/f80dev/NFluentWallet_beta.git -f -t true -b gh-pages -m \"update from gh-pages\"",
