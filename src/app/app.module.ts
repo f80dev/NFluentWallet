@@ -36,6 +36,7 @@ import {AliasPipe} from "./alias.pipe";
 import {DeviceService} from "./device.service";
 import {SocketIoConfig, SocketIoModule} from "ngx-socket-io";
 import {environment} from "../environments/environment";
+import {MatCardModule} from "@angular/material/card";
 
 const config: SocketIoConfig = { url: environment.server, options: {} };
 
@@ -60,7 +61,6 @@ Tester le wallet : http://wallet.nfluent.io/?param=YWRkcj1lcmQxNmNrNjJlZ252bXVza
         ScannerComponent,
         FaqsComponent,
         InputComponent,
-
         SignatureComponent,
         LoginComponent,
         MywalletComponent,
@@ -77,6 +77,7 @@ Tester le wallet : http://wallet.nfluent.io/?param=YWRkcj1lcmQxNmNrNjJlZ252bXVza
     MatButtonModule,
       MatSliderModule,
     WebcamModule,
+      MatCardModule,
     SocialLoginModule,
       MatExpansionModule,
     MatInputModule,

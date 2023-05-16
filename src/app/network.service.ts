@@ -1,16 +1,15 @@
 import {HostListener, Injectable, OnInit} from '@angular/core';
-import {
-    clusterApiUrl,
-    Connection,
-    PublicKey,
-} from "@solana/web3.js";
-import {TOKEN_PROGRAM_ID} from "@solana/spl-token";
-import * as SPLToken from "@solana/spl-token";
+// import {
+//     clusterApiUrl,
+//     Connection,
+//     PublicKey,
+// } from "@solana/web3.js";
+// import * as SPLToken from "@solana/spl-token";
 import {HttpClient, HttpErrorResponse} from "@angular/common/http";
 import {$$, CryptoKey, encrypt, words} from "../tools";
 import {environment} from "../environments/environment";
 
-import {catchError, fromEvent, retry, Subject, throwError, timeout} from "rxjs";
+import {catchError, retry, Subject, throwError, timeout} from "rxjs";
 import {Collection, Operation} from "../operation";
 import {NFT, SolanaToken, SplTokenInfo, Validator} from "../nft";
 import {Configuration, Layer} from "../create";
@@ -24,7 +23,7 @@ import {Router} from "@angular/router";
 export class NetworkService implements OnInit {
     unity_conversion: any={};
     private _network:string="";
-    private _connection: Connection=new Connection(clusterApiUrl("devnet"), 'confirmed');
+    // private _connection: Connection=new Connection(clusterApiUrl("devnet"), 'confirmed');
     waiting: string="";
     complement: string | undefined ="";
     fiat_unity: string="$";
@@ -41,7 +40,7 @@ export class NetworkService implements OnInit {
     stockage_available:string[]=[];          //stockage visuel et metadata
     stockage_document_available:string[]=[]; //stockage document attaché
 
-
+    chain_id="D"                               //Chain_id du réseau elrond
 
     constructor(
         private httpClient : HttpClient
@@ -67,22 +66,32 @@ export class NetworkService implements OnInit {
 
     }
 
+    find_key_by_address(addr:string) : CryptoKey | undefined {
+        for(let k of this.keys){
+            if(k.address==addr)return k;
+        }
+        return undefined
+    }
 
 
-
-
-    init_keys(network="elrond-devnet",with_balance=false,access_code:string="",operation_id:string="") {
+    init_keys(with_balance=false,access_code:string="",operation_id:string="",network="") {
+        if(network.length==0)network=this.network;
         return new Promise((resolve, reject) => {
             this.wait("Chargement des clés");
-            this.httpClient.get<CryptoKey[]>(this.server_nfluent + "/api/keys/?access_code="+access_code+"&network=" + network + "&with_private=true&with_balance="+with_balance+"&operation="+operation_id,).subscribe((r: CryptoKey[]) => {
-                this.keys = r;
-                this.wait();
-                resolve(r);
-            },(err:any)=>{
-                this.wait("!Probléme de chargement");
-                $$("Probleme de chargement");
+            if(this.network){
+                this.httpClient.get<CryptoKey[]>(this.server_nfluent + "/api/keys/?access_code="+access_code+"&network=" + this.network + "&with_private=true&with_balance="+with_balance+"&operation="+operation_id,).subscribe((r: CryptoKey[]) => {
+                    this.keys = r;
+                    this.wait();
+                    resolve(r);
+                },(err:any)=>{
+                    this.wait("!Probléme de chargement");
+                    $$("Probleme de chargement");
+                    reject();
+                });
+            } else {
                 reject();
-            });
+            }
+
         });
     }
 
@@ -168,41 +177,54 @@ export class NetworkService implements OnInit {
         return this._post("encrypt_key/"+network+"/","",body)
     }
 
+    //
+    // get_tokens(pubkey: PublicKey,f:Function) {
+    //     return new Promise((resolve, reject) => {
+    //         f(pubkey, {programId: TOKEN_PROGRAM_ID})
+    //             .then((r:any) => {
+    //                 let rc = [];
+    //                 for (let t of r.value) {
+    //                     rc.push(t);
+    //                 }
+    //                 resolve(rc);
+    //             }).catch((err:Error)=>{reject(err)});
+    //     });
+    // };
 
-    get_tokens(pubkey: PublicKey,f:Function) {
-        return new Promise((resolve, reject) => {
-            f(pubkey, {programId: TOKEN_PROGRAM_ID})
-                .then((r:any) => {
-                    let rc = [];
-                    for (let t of r.value) {
-                        rc.push(t);
-                    }
-                    resolve(rc);
-                }).catch((err:Error)=>{reject(err)});
-        });
-    };
-
-
+    get_token(addr:string,network:string){
+        return this._get("tokens/"+addr+"/","network="+network);
+    }
 
     get network(): string {
         return this._network;
     }
 
     set network(network_name: string) {
-        this._network = network_name;
-        //this._connection=new Connection(clusterApiUrl(network_name), 'confirmed');
-        this.init_keys(network_name).then(()=>{
-            this.network_change.next(network_name);
-        })
+        this.init_network(network_name)
     }
 
-    get connection(): Connection {
-        return this._connection;
+    init_network(network:string) : Promise<any>{
+        return new Promise((resolve) => {
+            if(this._network==network && this.keys.length>0){
+                resolve(this.keys)
+            } else {
+                this._network=network;
+                if(this.isMain())this.chain_id="T"; else this.chain_id="D";
+                this.init_keys(true,"","",network).then(()=>{
+                    this.network_change.next(network);
+                    resolve(this.keys);
+                }).catch(()=>{resolve(null)})
+            }
+        });
     }
 
-    set connection(value: Connection) {
-        this._connection = value;
-    }
+    // get connection(): Connection {
+    //     return this._connection;
+    // }
+    //
+    // set connection(value: Connection) {
+    //     this._connection = value;
+    // }
 
 
 
@@ -251,11 +273,11 @@ export class NetworkService implements OnInit {
         return new Promise((resolve, reject) => {
             if(mintAddress){
                 this.httpClient.get(explorer_domain+"/account?address=" + mintAddress).subscribe((dt: any) => {
-                    this.connection.getAccountInfo(new PublicKey(dt.data.tokenInfo.tokenAuthority), "confirmed").then((resp: any) => {
-                        let owner = resp.owner.toBase58();
-                        dt.owner=owner;
-                        resolve(dt);
-                    },(err:any)=>{$$("erreur ",err);reject(err);})
+                    // this.connection.getAccountInfo(new PublicKey(dt.data.tokenInfo.tokenAuthority), "confirmed").then((resp: any) => {
+                    //     let owner = resp.owner.toBase58();
+                    //     dt.owner=owner;
+                    //     resolve(dt);
+                    // },(err:any)=>{$$("erreur ",err);reject(err);})
                 });
             }
         });
@@ -312,52 +334,58 @@ export class NetworkService implements OnInit {
     }
 
 
-    complete_token(owner:string,e:any,filter:any=null,short=false) : Promise<any> {
-        $$("Completion des tokens");
-        return new Promise((resolve, reject) => {
-            let rc: any={};
-
-            if(e.account && e.account.data){
-                let splTokenInfo:any = SPLToken.AccountLayout.decode(e.account.data);
-                let mintAddress=splTokenInfo.mint.toBase58();
-
-                splTokenInfo["address"] = e.address;
-                let layoutInfo = SPLToken.MintLayout.decode(e.account.data);
-                let mintAuthority=layoutInfo.mintAuthority.toBase58();
-                splTokenInfo.amount=Number(splTokenInfo.amount);
-
-                if(filter==null || (filter.mintAuthority && mintAuthority==filter.mintAuthority)){
-                    $$("Analyse de "+mintAddress);
-                    this.httpClient.get(this.server_nfluent+"/api/scan/"+mintAddress+"?network="+this.network).subscribe((token_account:any)=>{
-                        if(token_account && token_account.hasOwnProperty("uri")){
-                            let headers = new Headers({
-                                'Cache-Control':  'no-cache, no-store, must-revalidate, post-check=0, pre-check=0',
-                                'Pragma': 'no-cache',
-                                'Expires': '0'
-                            });
-
-                            //Impossible d'avoir le résultat de suite : https://stackoverflow.com/questions/46551413/github-not-update-raw-after-commit
-                            let url=token_account.uri+"?ts="+Date.now();
-                            $$("Ouverture de "+url);
-                            // @ts-ignore
-                            this.httpClient.get(url,{headers: headers}).pipe(retry(3),timeout(5000)).subscribe((offchain:any)=>{
-                                resolve(this.create_token(offchain,mintAuthority,mintAddress,token_account,layoutInfo,splTokenInfo));
-                            },(err:any)=>{
-                                $$("Anomalie à la lecture des métadata sur "+token_account.uri,err);
-                                resolve(this.create_token({},mintAuthority,mintAddress,token_account,layoutInfo,splTokenInfo));
-                            })
-                        } else {
-                            reject();
-                        }
-                    },(err)=>{reject(err);})
-                }
-            }
-        });
-    }
+    // complete_token(owner:string,e:any,filter:any=null,short=false) : Promise<any> {
+    //     $$("Completion des tokens");
+    //     return new Promise((resolve, reject) => {
+    //         let rc: any={};
+    //
+    //         if(e.account && e.account.data){
+    //             let splTokenInfo:any = SPLToken.AccountLayout.decode(e.account.data);
+    //             let mintAddress=splTokenInfo.mint.toBase58();
+    //
+    //             splTokenInfo["address"] = e.address;
+    //             let layoutInfo = SPLToken.MintLayout.decode(e.account.data);
+    //             let mintAuthority=layoutInfo.mintAuthority.toBase58();
+    //             splTokenInfo.amount=Number(splTokenInfo.amount);
+    //
+    //             if(filter==null || (filter.mintAuthority && mintAuthority==filter.mintAuthority)){
+    //                 $$("Analyse de "+mintAddress);
+    //                 this.httpClient.get(this.server_nfluent+"/api/scan/"+mintAddress+"?network="+this.network).subscribe((token_account:any)=>{
+    //                     if(token_account && token_account.hasOwnProperty("uri")){
+    //                         let headers = new Headers({
+    //                             'Cache-Control':  'no-cache, no-store, must-revalidate, post-check=0, pre-check=0',
+    //                             'Pragma': 'no-cache',
+    //                             'Expires': '0'
+    //                         });
+    //
+    //                         //Impossible d'avoir le résultat de suite : https://stackoverflow.com/questions/46551413/github-not-update-raw-after-commit
+    //                         let url=token_account.uri+"?ts="+Date.now();
+    //                         $$("Ouverture de "+url);
+    //                         // @ts-ignore
+    //                         this.httpClient.get(url,{headers: headers}).pipe(retry(3),timeout(5000)).subscribe((offchain:any)=>{
+    //                             resolve(this.create_token(offchain,mintAuthority,mintAddress,token_account,layoutInfo,splTokenInfo));
+    //                         },(err:any)=>{
+    //                             $$("Anomalie à la lecture des métadata sur "+token_account.uri,err);
+    //                             resolve(this.create_token({},mintAuthority,mintAddress,token_account,layoutInfo,splTokenInfo));
+    //                         })
+    //                     } else {
+    //                         reject();
+    //                     }
+    //                 },(err)=>{reject(err);})
+    //             }
+    //         }
+    //     });
+    // }
 
 
     isMain() {
-        return this._network.indexOf("mainnet")>-1;
+        if(this._network){
+            return this._network.indexOf("mainnet")>-1;
+        }else{
+            return false;
+        }
+
+
     }
 
 
@@ -377,7 +405,7 @@ export class NetworkService implements OnInit {
         return throwError(() => new Error('Problème technique. Serveur probablement injoignable'));
     }
 
-    _get(url: string, param: string="",_timeout=2000) {
+    _get(url: string, param: string="",_timeout=30000) {
         if(!url.startsWith("http")){
             url="/api/"+url;
             url=this.server_nfluent+url.replace("//","/").replace("/api/api/","/api/")
@@ -386,7 +414,7 @@ export class NetworkService implements OnInit {
     }
 
 
-    _post(url: string, param: string="",body={},_timeout=2000) {
+    _post(url: string, param: string="",body={},_timeout=30000) {
         if(!url.startsWith("http")){
             url="/api/"+url;
             url=this.server_nfluent+url.replace("//","/").replace("/api/api/","/api/")
@@ -431,28 +459,28 @@ export class NetworkService implements OnInit {
                     })
                 }
 
-
-                if(type_addr=="miner"){
-                    //TODO function en chantier
-                    this.httpClient.get(this.server_nfluent+"/api/token_by_delegate/?account="+addr+"&network="+this.network).subscribe((r:any)=> {
-                        this.complete_token(addr,r.value).then(r => {
-                            resolve(r);
-                        })
-                    });
-                }
+                // Bloc lié à solana
+                // if(type_addr=="miner"){
+                //     //TODO function en chantier
+                //     this.httpClient.get(this.server_nfluent+"/api/token_by_delegate/?account="+addr+"&network="+this.network).subscribe((r:any)=> {
+                //         this.complete_token(addr,r.value).then(r => {
+                //             resolve(r);
+                //         })
+                //     });
+                // }
 
 
             }
         });
     }
 
-    get_nfts_from_miner(miner:PublicKey) : Promise<any[]> {
-        return new Promise((resolve,reject) => {
-            this.connection.getProgramAccounts(miner,"confirmed").then((r:any)=>{
-                this.complete_token(miner.toBase58(),r.value).then(r=>{resolve(r);})
-            })
-        });
-    }
+    // get_nfts_from_miner(miner:PublicKey) : Promise<any[]> {
+    //     return new Promise((resolve,reject) => {
+    //         this.connection.getProgramAccounts(miner,"confirmed").then((r:any)=>{
+    //             this.complete_token(miner.toBase58(),r.value).then(r=>{resolve(r);})
+    //         })
+    //     });
+    // }
 
     installed_wallet(){
         let rc=[];
@@ -558,11 +586,11 @@ export class NetworkService implements OnInit {
     }
 
     //recoit un objet aux propriétés filename & content
-    upload(file: any ,platform:string="nftstorage",type="image/png",convert=""){
+    upload(file: any ,platform:string="nftstorage",type="image/png",convert="",api_key=""){
         if(platform!="nfluent"){
-            return this.httpClient.post(this.server_nfluent+"/api/upload/?convert="+convert+"&platform="+platform+"&type="+type,file);
+            return this.httpClient.post(this.server_nfluent+"/api/upload/?convert="+convert+"&platform="+platform+"&type="+type+"&api_key="+api_key,file);
         }else{
-            return this.httpClient.post(environment.server+"/api/upload/?convert="+convert+"&platform="+platform+"&type="+type,file);
+            return this.httpClient.post(environment.server+"/api/upload/?convert="+convert+"&platform="+platform+"&type="+type+"&api_key="+api_key,file);
         }
     }
 
@@ -703,11 +731,28 @@ export class NetworkService implements OnInit {
         return this.httpClient.get<{nfts:NFT[]}>(this.server_nfluent+"/api/nfts_from_collection/"+collection_id+"/?network="+network);
     }
 
-    transfer_to(mint_addr: string, to_addr: string,owner:string,network="",mail_content="mail_new_account") {
-        if(network.length==0)network=this.network;
-        let body={token_id:mint_addr,dest:to_addr,miner:owner,mail_content:mail_content}
+    transfer_to(mint_addr: string,
+                to_addr: string,
+                from_miner:CryptoKey,
+                to_miner:CryptoKey,
+                from_network:string,
+                to_network:string,
+                collection_id:string,
+                mail_content="mail_new_account",
+                operation_id="") {
+        let body={
+            token_id:mint_addr,
+            dest:to_addr,
+            from_miner:from_miner,
+            from_network:from_network,
+            to_network:to_network,
+            target_miner: to_miner,
+            collection_id: collection_id,
+            mail_content:mail_content,
+            operation:operation_id
+        }
         return this.httpClient.post(
-            this.server_nfluent+"/api/transfer/"+encodeURIComponent(mint_addr)+"/"+encodeURIComponent(to_addr)+"/"+encodeURIComponent(owner)+"/?network="+network, body
+            this.server_nfluent+"/api/transfer/", body
         );
     }
 
@@ -721,11 +766,12 @@ export class NetworkService implements OnInit {
         return this.httpClient.post(this.server_nfluent+"/api/generate_svg/",data);
     }
 
-    create_account(network: string, email: string,mail="mail_new_account",dictionnary={}) {
+    create_account(network: string, email: string,new_account_mail="mail_new_account",existing_account_mail="mail_existing_account",dictionnary={}) {
+        //On pourra utiliser %network% pour inserer le nom du réseau dans le nom des emails de confirmations
         let body={
             email:email,
-            mail_new_wallet:mail+"_"+network.split("-")[0],
-            mail_existing_wallet:"mail_existing_account_"+network.split("-")[0],
+            mail_new_wallet:new_account_mail.replace("%network%",network.split("-")[0]),
+            mail_existing_wallet:existing_account_mail.replace("%network%",network.split("-")[0]),
             dictionnary:dictionnary
         }
         return this.httpClient.post(this.server_nfluent+"/api/keys/?network="+network,body);
@@ -752,8 +798,8 @@ export class NetworkService implements OnInit {
         return this.httpClient.get<string>(this.server_nfluent+"/api/check_access_code/"+access_code+"?format=base64");
     }
 
-    get_nft(address: string, network: string) {
-        return this.httpClient.get<any>(this.server_nfluent+"/api/nfts/"+address+"?network="+network);
+    get_nft(address: string, network: string,owner:string="") {
+        return this.httpClient.get<any>(this.server_nfluent+"/api/nfts/"+address+"?network="+network+"&account="+owner);
     }
 
     add_user_for_nft(body:any) {
@@ -780,19 +826,21 @@ export class NetworkService implements OnInit {
         body["quality"]=quality
         body["dynamic_fields"]=dynamic_fields
         body["format"]=format
-        return this.httpClient.post(this.server_nfluent+"/api/send_photo_for_nftlive/",body)
+        return this._post("send_photo_for_nftlive/","",body,60000)
     }
 
 
-    mint(token:NFT, miner:CryptoKey, owner:string,operation:string,sign=false, platform:string="nftstorage", network="",storage_file="",encrypt_nft=false){
+    mint(token:NFT, miner:CryptoKey, owner:string,operation:string,sign=false,
+         platform:string="nftstorage", network="",
+         storage_file="",encrypt_nft=false) : Promise<any> {
         return new Promise((resolve, reject) => {
-            let param="storage_file="+storage_file+"&keyfile="+miner+"&owner="+owner+"&sign="+sign+"&platform="+platform+"&network="+network+"&operation="+operation
+            let param="storage_file="+storage_file+"&keyfile="+miner.encrypt+"&owner="+owner+"&sign="+sign+"&platform="+platform+"&network="+network+"&operation="+operation
             param=param+"&encrypt_nft="+encrypt_nft;
             this.httpClient.post(this.server_nfluent+"/api/mint/?"+param,{nft:token,miner:miner}).subscribe((r)=>{
                 resolve(r);
             },(err)=>{
                 this.wait();
-                reject(err);
+                resolve(err);
             })
         });
     }
@@ -802,7 +850,14 @@ export class NetworkService implements OnInit {
     }
 
     extract_zip(file:any) {
-        return this.httpClient.post(this.server_nfluent+"/api/extract_zip/",file);
+        return this._post("extract_zip/","",file);
+    }
+
+
+    refund(_from:CryptoKey,dest:string,token_id: string="egld",amount:number=1.0,comment="",network="elrond-devnet") {
+        //@bp.route('/refund/<address>/<amount>/<token>/',methods=["POST"])
+        let body={bank:_from,data:comment,network:network}
+        return this._post("refund/"+dest+"/"+amount+"/"+token_id+"/","",body,120000);
     }
 
     get_collections(owners_or_collections: string,network="",detail=false) {
@@ -811,8 +866,8 @@ export class NetworkService implements OnInit {
         return this.httpClient.get<Collection[]>(url);
     }
 
-    create_collection(new_collection: Collection) {
-        return this.httpClient.post(this.server_nfluent+"/api/create_collection/?network="+this.network,new_collection);
+    create_collection(new_collection: Collection,simulation=false) {
+        return this.httpClient.post(this.server_nfluent+"/api/create_collection/?network="+this.network+"&simulation="+simulation,new_collection);
     }
 
     get_minerpool() {
@@ -870,12 +925,12 @@ export class NetworkService implements OnInit {
 
     getExplorer(addr:string | undefined,_type="address") : string {
         if(this.isElrond())
-            return "https://"+(this.isMain() ? "" : "devnet-")+"explorer.multiversx.com/"+_type+"/"+addr;
+            return "https://"+(this.isMain() ? "" : "devnet.")+"xspotlight.com/"+addr;
         if(this.isPolygon()){
             if(this.isMain()){
                 return "https://polygonscan.com/"+_type+"/"+addr;
             }else{
-                return "https://polygon.testnets-nftically.com/marketplace?search="+addr
+                return "https://polygon.testnets-nftically.com/marketplace?search="+addr+"&chain[]=80001"
                 //return "https://mumbai.polygonscan.com/"+_type+"/"+addr;
             }
         }
@@ -896,9 +951,10 @@ export class NetworkService implements OnInit {
         return this.httpClient.get(this.server_nfluent+"/api/check_private_key/"+seed+"/"+address+"/"+this.network);
     }
 
-    getBalance(addr:string,network="") {
-        if(network.length==0)network=this.network;
-        return this.httpClient.get(this.server_nfluent+"/api/keys/"+addr+"/?with_balance=true&network="+network);
+    getBalance(addr:string,network:string,token_id="") {
+        let params="with_balance=true&network="+network;
+        if(token_id.length>0)params=params+"&token_id="+token_id;
+        return this._get("keys/"+addr+"/",params)
     }
 
 
@@ -924,6 +980,10 @@ export class NetworkService implements OnInit {
         return this.httpClient.post<NFT[]>(this.server_nfluent+"/api/upload_batch/",content);
     }
 
+    upload_excel_file(content:any) {
+        return this.httpClient.post<any[]>(this.server_nfluent+"/api/upload_excel/",content);
+    }
+
     get_account(addr: string, network: string) {
         return this._get("accounts/"+addr,"network="+network);
     }
@@ -933,6 +993,7 @@ export class NetworkService implements OnInit {
     }
 
     isDevnet() {
+        if(!this.network)return false;
         if(this.network.indexOf("devnet")>-1)return true;
         return false;
     }
@@ -964,5 +1025,50 @@ export class NetworkService implements OnInit {
 
     check_network(router: Router) {
         if(!this.online)router.navigate(["pagenotfound"],{queryParams:{message:"Connexion au serveur impossible"}});
+    }
+
+    hashcode(doc: any[]) {
+        return this._post("hashcode/","",{docs:doc});
+    }
+
+    isBlockchain() {
+        return !(this.network.startsWith("db-") || this.network.startsWith("file-"))
+    }
+
+    get_sequence(layers: Layer[], limit: number,config:string="") {
+        return this._post("get_sequence/","",{layers:layers,limit:limit,config:config});
+    }
+
+
+    get_composition(items:any[],layers:any[],data:any,size:string="500x500",format="webp",platform="server") {
+        return this._post("get_composition/","",{format:format,size:size,data:data,items:items,layers:layers,platform:platform},200000);
+    }
+
+    create_zip(files:string[],email:string="") {
+        let body={
+            email:email,
+            files:files
+        }
+        return this._post("create_zip/","",body);
+    }
+
+    send_bill(dest: string,amount:string,
+              subject: string="Votre facture",
+              reference="",
+              message="",
+              description="",
+              contact="support@nfluent.io",
+              model="mail_facture.html") {
+        let body={
+            dest:dest,
+            reference: reference,
+            message: message,
+            subject:subject,
+            model:model,
+            amount:amount,
+            contact:contact,
+            description:description
+        }
+        return this._post("send_bill/","",body,200000);
     }
 }

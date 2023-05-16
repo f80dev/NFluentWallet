@@ -1,6 +1,9 @@
 //Description d'une collection
 import {CryptoKey} from "./tools";
 
+
+
+
 export interface Collection {
   name:string
   id: string
@@ -29,7 +32,7 @@ export interface Source {
   type: "database" | "network" | "file"
   connexion: string
   filter: any | null
-  owner: string | null
+  miner: CryptoKey | null
   dbname: string | null
   collections: string[] | null
 }
@@ -94,7 +97,7 @@ export interface Operation {
     sources: Source[]
   }
 
-  lazy_mining :{
+  mining :{
     metadata_storage: string
     content_storage: string
     networks:[{
@@ -330,7 +333,7 @@ export interface Operation {
 
 }
 
-export function newCollection(name:string,owner:CryptoKey,id="") : Collection {
+export function newCollection(name:string,owner:CryptoKey,id="",type_collection="SemiFungible") : Collection {
   if(id.length==0)id=name;
   return {
     description: "",
@@ -341,7 +344,7 @@ export function newCollection(name:string,owner:CryptoKey,id="") : Collection {
     owner: owner,
     price: 0,
     roles: undefined,
-    type: undefined,
+    type: type_collection,
     visual: undefined
   }
 }
@@ -367,6 +370,25 @@ export function get_in(obj:any | null,fields:string,_default:any=null) : any {
     }
   }
   return rc;
+}
+
+
+export function check_nft(ope:Operation){
+  let checknft=get_in(ope,"validate.filters.collections",get_in(ope,"validate.collections",[]))
+  if(checknft.length==0){
+    //Recherche de collection dans les sources
+    for(let src of ope.data.sources){
+      checknft=get_in(src,"collection",get_in(src,"filter.collection",[]))
+      if(checknft.length>0)break
+    }
+    if(checknft.length==0){
+      //Recherche de collection dans le lazy_mining
+      for(let network of get_in(ope,"lazy_mining.networks",[])){
+        checknft=get_in(network,"collection",[])
+        if(checknft.length>0)break;
+      }
+    }
+  }
 }
 
 

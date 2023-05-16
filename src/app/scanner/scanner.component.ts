@@ -1,6 +1,7 @@
 import {Component, EventEmitter, Input, OnDestroy, OnInit, Output} from '@angular/core';
 import {Observable, Subject} from "rxjs";
 import jsQR from "jsqr";
+import {WebcamImage} from "ngx-webcam";
 
 @Component({
   selector: 'app-scanner',
@@ -11,6 +12,7 @@ export class ScannerComponent implements OnInit,OnDestroy {
 
   @Input("size") size="300px";
   @Input("filter") filter="";
+  @Input() showCapture:boolean=false;
   @Input("caption") caption="Pointez vers le QRCode d'une adresse";
   @Output('flash') onflash: EventEmitter<any>=new EventEmitter();
   @Output('cancel') oncancel: EventEmitter<any>=new EventEmitter();
@@ -22,7 +24,7 @@ export class ScannerComponent implements OnInit,OnDestroy {
   private nextWebcam: Subject<boolean|string> = new Subject<boolean|string>();
   handle:any;
   _size: any;
-  image:any;
+  image:WebcamImage | undefined;
 
 
   constructor() {
@@ -47,10 +49,9 @@ export class ScannerComponent implements OnInit,OnDestroy {
     clearInterval(this.handle);
   }
 
-  handleImage(event: any) {
-    var rc=event.imageData;
-    this.image=event.imageData;
-    var decoded =jsQR(rc.data,rc.width,rc.height);
+  handleImage(img: WebcamImage) {
+    this.image=img;
+    var decoded =jsQR(img.imageData.data,img.imageData.width,img.imageData.height);
     if(decoded!=null && decoded.data!=null && (this.filter.length==0 || decoded.data.indexOf(this.filter)>-1)){
       this.onflash.emit({data:decoded.data});
     }
@@ -65,6 +66,6 @@ export class ScannerComponent implements OnInit,OnDestroy {
   }
 
   capture() {
-    this.ontouch.emit({data:this.image})
+    this.ontouch.emit({data:"data:image/jpeg;base64,"+this.image?.imageAsBase64})
   }
 }
