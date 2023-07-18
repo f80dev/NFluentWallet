@@ -9,7 +9,8 @@ export const environment = {
   forum: "",
   server:"http://127.0.0.1:4242",
   appname:"NFluent Wallet",
-  appli:"http://127.0.0.1:4200"
+  appli:"http://127.0.0.1:4200",
+  faqs:""
 };
 
 /*

@@ -1,6 +1,6 @@
 import {Component, DoCheck, Input, OnDestroy, OnInit} from '@angular/core';
 import {NetworkService} from "../network.service";
-import {$$, getParams, isLocal, newCryptoKey, setParams, showError, showMessage} from "../../tools";
+import {$$, apply_params, getParams, isLocal, newCryptoKey, setParams, showError, showMessage} from "../../tools";
 import {ActivatedRoute, Router} from "@angular/router";
 import {environment} from "../../environments/environment";
 import {MatSnackBar} from "@angular/material/snack-bar";
@@ -23,6 +23,7 @@ export class MywalletComponent implements OnInit,OnDestroy {
   indexTab: number=0;
   url_key: any="";
   showDetail=false;
+  exclude_collections:string[]=[]
 
   @Input("filter") filter="";
 
@@ -78,11 +79,12 @@ export class MywalletComponent implements OnInit,OnDestroy {
     getParams(this.routes).then((params:any)=>{
       $$("Récupération des paramètres: ",params);
 
-      let network=params["network"] || "elrond-devnet";
-      if(network=="db")network="db-server-nfluent";
-      this.network=network;
 
+      apply_params(this,params,environment)
+      this.api.network=this.network;
       this.addr=params["addr"] || params["address"] || "";
+      this.api.get_account_settings(this.addr).subscribe((r)=>{this.exclude_collections=r.exclude_from_gallery || [];})
+
       this.refresh_balance();
       this.showDetail=params["show_detail"] || false;
 
@@ -101,9 +103,9 @@ export class MywalletComponent implements OnInit,OnDestroy {
 
 
 
-  force_refresh(col:Collection | null=null){
+  force_refresh(col:string | null=null){
     this.nfts=[];
-    if(col)this.sel_collection=col.id;
+    if(col)this.sel_collection=col;
     this.refresh(0);
   }
 
@@ -124,8 +126,12 @@ export class MywalletComponent implements OnInit,OnDestroy {
       if(nft.collection){
         if(this.collections.map((x:Collection)=>{return x.id}).indexOf(nft.collection.id)==-1){
           let name=nft.collection.name ? nft.collection.name : nft.collection.id;
-          this.collections.push(newCollection(name,nft.collection.owner,nft.collection.id));
-          this.options.push({label:name,value:nft.collection.id}); //=this.collections.map((x:Collection)=>{return {label:x.name,value:x.id}})
+          this.api.get_collections(name,this.network).subscribe((cols)=>{
+            let col=cols[0]
+            col.gallery=(this.exclude_collections.indexOf(col.id)==-1)
+            this.collections.push(col);
+            this.options.push({label:col.name,value:col.id}); //=this.collections.map((x:Collection)=>{return {label:x.name,value:x.id}})
+          })
         }
       }
     }
@@ -145,13 +151,19 @@ export class MywalletComponent implements OnInit,OnDestroy {
 
   refresh(index:number=0) {
     $$("Refresh de l'onglet "+index);
+    if(index!=2 && this.addr==""){
+      showMessage(this,"Authentification requise");
+      this.indexTab=2;
+      return;
+    }
     if(index==0 && this.nfts.length==0 && this.addr!=""){
       this.message=(this.sel_collection=="*") ? "Recherches de vos NFTs" : "Chargement de vos NFTs de la collection "+this.sel_collection;
-      let with_attr=!this.api.isElrond() && !this.api.isPolygon();
-      let offset=5;
+      let offset=12;
 
-      this.api.get_tokens_from("owner",this.addr,offset,with_attr,null,0,this.network).then((r:any)=>{
+      this.api.get_tokens_from("owner",this.addr,offset,true,null,0,this.network).then((r:any)=>{
         this.add_nfts(r.result,r.offset);
+      },(err)=>{
+        showError(this,err);
       });
 
       setTimeout(()=>{
@@ -159,7 +171,7 @@ export class MywalletComponent implements OnInit,OnDestroy {
           this.message="";
           this.add_nfts(r.result,r.offset);
         }).catch(err=>{showError(this,err)});
-      },300);
+      },1500);
     }
 
     if(index==2){
@@ -182,8 +194,19 @@ export class MywalletComponent implements OnInit,OnDestroy {
   showScanner: boolean=false;
   accescode_scan: string="";
   version: any;
-  nft_size: number | null=250;
+  nft_size: number=350;
   balance: number=0
+  claim="";
+  appname="";
+  visual="";
+
+  gallery_models=[
+    {label:"Gallerie",value:{svg:"musee.svg",background:"https://gallery.nfluent.io/assets/redwall1.jpg"}},
+    {label:"Canvas rouge",value:{svg:"canvas.svg",background:"https://gallery.nfluent.io/assets/redwall2.jpg"}},
+    {label:"Métal",value:{svg:"canvas.svg",background:"https://gallery.nfluent.io/assets/wall1.jpg"}},
+    {label:"Grafiti",value:{svg:"grafitis.svg",background:"https://gallery.nfluent.io/assets/redwall1.jpg"}}
+  ]
+  sel_model: {label:string,value:{svg:string,background:string}}=this.gallery_models[0];
 
   handleImage(event: any) {
     let rc=event;
@@ -219,6 +242,8 @@ export class MywalletComponent implements OnInit,OnDestroy {
   send(image:string) {
     if(this.sel_ope?.nftlive){
       let collection:Collection= {
+        gallery: true,
+        supply: 1,
         name: this.sel_ope?.nftlive!.nft_target.collection,
         id: "",
         roles:[],
@@ -328,13 +353,16 @@ export class MywalletComponent implements OnInit,OnDestroy {
   on_authent($event: any) {
     //Cette fonction est déclenché dans le cadre du nfluent_wallet_connect
     this.strong=$event.strong;
+    if(this.addr.length>0 && this.addr!=$event.address){
+      showMessage(this,"Cette identification ne correspond pas au wallet ouvert");
+      this.strong=false;
+      return;
+    }
     if($event.strong){
       this.addr=$event.address;
       this.refresh_balance();
       showMessage(this,"Vous êtes maintenant pleinement connecté à votre wallet");
-      setTimeout(()=>{
-        this.indexTab=0;
-        },1500);
+      setTimeout(()=>{this.indexTab=0;},1500);
     }
   }
 
@@ -366,7 +394,22 @@ export class MywalletComponent implements OnInit,OnDestroy {
   }
 
   open_inspire() {
-    open(this.api.getExplorer(this.addr),"Explorer");
+    let tools=this.nfts.length==0 ? "explorer" : "xspotlight";
+    open(this.api.getExplorer(this.addr,"accounts",tools),"Explorer");
+  }
+
+  open_gallery(address:any,collection:any) {
+    let p:any={
+      toolbar:false,
+      network:this.network,
+      canChange:true,
+      svg:this.sel_model?.value.svg,
+      background:this.sel_model?.value.background,
+      duration:20
+    }
+    if(address)p["address"]=address
+    if(collection)p["collection"]=collection.id;
+    open("https://gallery.nfluent.io/?"+setParams(p),"gallery")
   }
 
 
@@ -392,5 +435,18 @@ export class MywalletComponent implements OnInit,OnDestroy {
         }
       })
     }
+  }
+
+  logout() {
+    this.addr="";
+    this._location.go("/wallet",setParams({toolbar:false}))
+  }
+
+  save_accout_settings() {
+    let rc=[]
+    for(let c of this.collections){
+      if(!c.gallery)rc.push(c.id)
+    }
+    this.api.set_account_settings(this.addr,rc).subscribe(()=>{});
   }
 }

@@ -10,6 +10,7 @@ xcopy /f /y ..\NFTCalvi\src\app\rescuewallet\*.* src\app\rescuewallet\
 xcopy /f /y ..\NFTCalvi\src\app\splash\*.* src\app\splash\
 xcopy /f /y ..\NFTCalvi\src\app\network.service.ts src\app\
 xcopy /f /y ..\NFTCalvi\src\app\device.service.ts src\app\
+xcopy /f /y ..\NFTCalvi\src\app\evm-wallet-service.service.ts src\app\
 xcopy /f /y ..\NFTCalvi\src\app\operation.service.ts src\app\
 xcopy /f /y ..\NFTCalvi\src\nfluent.scss src\
 xcopy /f /y ..\NFTCalvi\src\app\hourglass\*.*  src\app\hourglass\

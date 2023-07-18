@@ -1,8 +1,14 @@
+<app-splash
+        [appname]="appname"
+        [duration]="2000"
+        [image]="visual"
+        [description]="claim"></app-splash>
+
 <div style="position: fixed;right:0px;top:0px;display: block;height:20px;color: lightgray;" *ngIf="api.network.indexOf('devnet')>-1">DevNet</div>
 <mat-tab-group [selectedIndex]="indexTab" animationDuration="1500ms"
                (selectedIndexChange)="refresh($event)"
                style="padding: 10px;width:100%;  text-align: center;">
-  <mat-tab [label]="tab_title" *ngIf="addr && addr.length>0">
+  <mat-tab [label]="tab_title">
     <div  class="tab-content">
       <div style="display: flex;margin-top: 10px;flex-wrap: wrap;justify-content: center;align-items: center;align-content: center;">
 
@@ -16,24 +22,30 @@
           <mat-icon>refresh</mat-icon>
         </button>
         <button mat-icon-button (click)="open_inspire()"
-                title="Voir dans Inspire.art">
+                title="Voir dans xSpotLight">
           <mat-icon>visibility</mat-icon>
         </button>
+
+        <button mat-icon-button (click)="open_gallery(addr,null)"
+                title="Ouvrir en gallerie">
+          <mat-icon>photo</mat-icon>
+        </button>
+
 
         <mat-slider [max]="500" [min]="100" title="Taille des NFTs affichés"
                     style="margin-left: 10px;width: 100px;">
           <input matSliderThumb [(ngModel)]="nft_size">
         </mat-slider>
 
-        <span style="margin: 10px">{{balance | number:"1.0-1"}} EGold</span>
+        <span style="margin: 10px">
+          {{balance | number:"1.0-1"}} <span *ngIf="network.indexOf('elrond')>-1">EGold</span>
+        </span>
 
         <app-input [options]="options"
                    label="Collections" value_field="value"
                    *ngIf="nfts.length>3 || sel_collection!='*'"
                    [value]="sel_collection" (valueChange)="force_refresh($event)">
         </app-input>
-
-
 
       </div>
       <app-hourglass [message]="message"></app-hourglass>
@@ -93,7 +105,7 @@
   </mat-tab>
 
 
-  <mat-tab label="Accés" *ngIf="addr && addr.length>0">
+  <mat-tab label="Accés">
     <div *ngIf="!showScanner" class="tab-content">
       <br>
       <div *ngIf="url_key!=''">
@@ -185,7 +197,7 @@
               </button>
             </td>
             <td>
-              <app-upload-file (uploaded)="on_upload($event)"
+              <app-upload-file (uploaded)="on_upload($event)" [maxsize]="10000000"
                                title="Chargée une image depuis votre ordinateur"
                                extensions=".png,.psd,.webp,.gif,.jpg,.svg,.yaml">
                 Charger un fichier
@@ -253,14 +265,54 @@
   </mat-tab>
 
   <mat-tab label="Préférences">
-    <app-authent *ngIf="addr?.length==0"
+    <mat-expansion-panel style="max-width:600px;display:inline-block;margin:20px;" class="mat-body-2">
+      <mat-expansion-panel-header>Gestion des collections</mat-expansion-panel-header>
+      <br>
+      <app-input [options]="gallery_models" label="Décors de présentation"
+                 help="Esthétique de votre présentation"
+                 [value]="sel_model" (valueChange)="sel_model=$event"></app-input>
+      <br>
+      <table style="width:100%;">
+        <tr>
+          <th>Collection</th>
+          <th>Visible</th>
+          <th>Présenter</th>
+        </tr>
+        <tr *ngFor="let col of collections">
+          <td><a [href]="col.link" target="_blank">{{col.name}}</a></td>
+          <td>
+            <mat-slide-toggle [(ngModel)]="col.gallery" (ngModelChange)="save_accout_settings()"></mat-slide-toggle>
+          </td>
+          <td>
+            <button mat-icon-button (click)="open_gallery(null,col)">
+              <mat-icon>movie</mat-icon>
+            </button>
+          </td>
+        </tr>
+      </table>
+    </mat-expansion-panel>
+
+    <br><br>
+    <div class="mat-headline-4 color-primary">Se connecter</div>
+    <app-authent *ngIf="addr?.length==0 || !strong"
+                 style="max-width: 350px"
                  [showWalletConnect]="true"
+                 [showEmail]="false"
+                 [showGoogle]="false"
                  [showExtensionWallet]="true"
                  [showWebWallet]="true"
                  (authent)="on_authent($event)"
                  (disconnect)="on_disconnect()"
+                 [showCancel]="false"
                  [showPrivateKey]="true">
     </app-authent>
+
+    <br>
+    <button type="button" mat-raised-button (click)="logout()" *ngIf="addr.length>0">
+      Se déconnecter
+    </button>
+
+
 
 
     <div *ngIf="addr!='' && strong">
@@ -292,7 +344,7 @@
       <div *ngIf="secret.length==0" style="display: inline-block;">
         <br><br>
         <app-upload-file (uploaded)="update_identity_photo($event)"
-                         [maxsize]="500000"
+                         [maxsize]="5000000"
                          [zone]="true" width="250px" height="100px">
           Charger une<br>photo d'identité
         </app-upload-file>

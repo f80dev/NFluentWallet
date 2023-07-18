@@ -1,27 +1,28 @@
 import {environment} from "./environments/environment";
-import {ActivatedRoute} from "@angular/router";
+import {ActivatedRoute, Params} from "@angular/router";
 import {NFT} from "./nft";
 import {Clipboard} from "@angular/cdk/clipboard";
 import {NFLUENT_WALLET} from "./definitions";
 import {ImageItem} from "ng-gallery";
+import {_prompt} from "./app/prompt/prompt.component";
 
 export interface CryptoKey {
   name: string | null
   address: string
-  privatekey:string | null
-  encrypt:string | null
+  secret_key:string | null
+  encrypt:string | undefined
   balance:number | null
   qrcode:string | null
   explorer:string | null
   unity:string | null
 }
 
-export function newCryptoKey(address="",name="",privateKey="",encrypted=null) : CryptoKey {
+export function newCryptoKey(address="",name="",privateKey="",encrypted:string | undefined=undefined) : CryptoKey {
   let rc:CryptoKey= {
     explorer:null, qrcode: "", unity: "",
     name:name,
     address:address,
-    privatekey:privateKey,
+    secret_key:privateKey,
     encrypt:encrypted,
     balance:null
   }
@@ -109,6 +110,7 @@ export function setParams(_d:any,prefix="",param_name="p") : string {
   //Encryptage des parametres de l'url
   //Version 1.0
   let rc=[];
+  _d=JSON.parse(JSON.stringify(_d))
   for(let k of Object.keys(_d)){
     if(typeof(_d[k])=="object")_d[k]="b64:"+btoa(JSON.stringify(_d[k]));
     rc.push(k+"="+encodeURIComponent(_d[k]));
@@ -119,6 +121,18 @@ export function setParams(_d:any,prefix="",param_name="p") : string {
   else
     return encodeURIComponent(url);
 }
+
+export function enterFullScreen(element:any) {
+  if(element.requestFullscreen) {
+    element.requestFullscreen();
+  }else if (element.mozRequestFullScreen) {
+    element.mozRequestFullScreen();     // Firefox
+  }else if (element.webkitRequestFullscreen) {
+    element.webkitRequestFullscreen();  // Safari
+  }else if(element.msRequestFullscreen) {
+    element.msRequestFullscreen();      // IE/Edge
+  }
+};
 
 
 export function analyse_params(params:string):any {
@@ -151,11 +165,12 @@ export function analyse_params(params:string):any {
   return rc;
 }
 
-export function now(format="number") : any {
+export function now(format="number",offset_in_sec=0) : any {
+  let d=new Date(new Date().getTime()+offset_in_sec*1000);
   let rc=new Date().getTime();
-  if(format=="date")return new Date().toLocaleDateString();
-  if(format=="time")return new Date().toLocaleTimeString();
-  if(format=="datetime")return new Date().toLocaleString();
+  if(format=="date")return d.toLocaleDateString();
+  if(format=="time")return d.toLocaleTimeString();
+  if(format=="datetime")return d.toLocaleString();
   if(format=="rand")return (Math.random()*10000).toString(16);
   if(format=="hex")return rc.toString(16);
   if(format=="dec" || format=="str")return rc.toString();
@@ -163,22 +178,21 @@ export function now(format="number") : any {
 }
 
 
-export function exportToCsv(filename: string, rows: object[]) {
+export function exportToCsv(filename: string, rows: object[],separator=";",cr="\n",text_sep="'") {
   if (!rows || !rows.length) {
     return;
   }
-  const separator = ',';
   const keys = Object.keys(rows[0]);
   const csvContent =
       keys.join(separator) +
-      '\n' +
+      cr +
       rows.map((row:any) => {
         return keys.map(k => {
           let cell = row[k] === null || row[k] === undefined ? '' : row[k];
           cell = cell instanceof Date
               ? cell.toLocaleString()
-              : "'"+cell.toString().replace(/"/g, '""')+"'";
-          if (cell.search(/("|,|\n)/g) >= 0) {
+              : text_sep+cell.toString().replace(/"/g, '""')+text_sep;
+          if (cell.search(/("|"+separator"+|"+cr+")/g) >= 0) {
             cell = `"${cell}"`;
           }
           return cell;
@@ -247,36 +261,85 @@ export function rotate(src: string, angle: number, quality: number=1) : Promise<
       img.src = src;
     }
   });
-
 }
 
+
+export function apply_params(vm:any,params:any,env:any={}){
+  for(let prop of ["claim","title","appname","background","visual","new_account_mail","existing_account_mail","website","cgu","contact","company","logo"]){
+    if(vm.hasOwnProperty(prop))vm[prop]=params[prop] || env[prop] || "";
+  }
+
+  if(vm.hasOwnProperty("network")){
+    if(typeof vm.network=="string")vm.network = params.networks || env.network || "elrond-devnet"
+  }
+  if(params.hasOwnProperty("advanced_mode"))vm.advanced_mode=(params.advanced_mode=='true');
+
+  if(vm.hasOwnProperty("device")){
+    vm.device.setTitle(params.appname);
+    if(params.favicon)vm.device.setFavicon(params.favicon || "favicon.ico");
+  }
+
+  let style=params.style || env.style;
+  if(style && vm.hasOwnProperty("style")){
+    vm.style.setStyle("theme","./"+style);
+  }
+  if(vm.hasOwnProperty("miner"))vm.miner = newCryptoKey("","","",params.miner || env.miner)
+  if(vm.hasOwnProperty("user")){
+    vm.user.params = params;
+    $$("Conservation des parametres dans le service user")
+  }
+}
+
+
+export function open_image_banks(vm:any){
+  showMessage(vm,"Il est possible de faire directement glisser les images d'un site web vers le calque souhaité")
+  _prompt(vm,"Saisissez un mot clé (de préférence en anglais)",
+      "rabbit",
+      "Accéder directement à plusieurs moteurs de recherche d'image","text",
+      "Rechercher","Annuler",false).then((resp:any)=>{
+    open("https://www.google.com/search?q=google%20image%20"+resp+"&tbm=isch&tbs=ic:trans","search_google");
+    open("https://giphy.com/search/"+resp,"giphy")
+    open("https://pixabay.com/fr/vectors/search/"+resp+"/","search_vector")
+    open("https://thenounproject.com/search/icons/?iconspage=1&q="+resp,"search_vector")
+    open("https://pixabay.com/images/search/"+resp+"/?colors=transparent","search_transparent")
+    open("https://www.pexels.com/fr-fr/chercher/"+resp+"/","search_pexels")
+  })
+
+}
 
 export function getParams(routes:ActivatedRoute,local_setting_params="",force_treatment=false) {
   //Decryptage des parametres de l'url
   //Version 1.0
   return new Promise((resolve, reject) => {
-    setTimeout(()=>{
 
-      routes.queryParams.subscribe((params:any) => {
-        if(params==null && local_setting_params.length>0)params=localStorage.getItem(local_setting_params)
+      routes.queryParams.subscribe({next:(ps:any) => {
+        if(ps==null && local_setting_params.length>0){
+          ps=localStorage.getItem(local_setting_params)
+        }
 
-        if(params){
-          if(params.hasOwnProperty("p")){
-            params=analyse_params(decodeURIComponent(params["p"]));
+        if(ps){
+          if(ps.hasOwnProperty("p")){
+            let temp:any=analyse_params(decodeURIComponent(ps["p"]));
+            for(let k of Object.keys(ps)){
+              if(k!="p"){
+                temp[k]=ps[k];
+              }
+            }
+            ps=temp;
+            $$("Analyse des paramètres par la fenetre principale ", ps);
           }
         }
 
-        if(!params) {
+        if(!ps) {
           if (force_treatment) {resolve({})}else{reject()}
         }else{
-          if(local_setting_params.length>0)localStorage.setItem(local_setting_params,params["p"]);
-          resolve(params);
+          if(local_setting_params.length>0)localStorage.setItem(local_setting_params,ps["p"]);
+          resolve(ps);
         }
-      },(err)=>{
+      },error:(err)=>{
         $$("!Impossible d'analyser les parametres de l'url");
         reject(err);
-      })
-    },200);
+      }})
   });
 }
 
@@ -449,8 +512,9 @@ export function copyAchievements(clp:Clipboard,to_copy:string) {
 
 }
 
-export function canTransfer(nft:NFT) : boolean {
-  if(nft.balances[nft.miner.address]==0)return false;
+export function canTransfer(nft:NFT,address:string) : boolean {
+  if(!nft.balances.hasOwnProperty(address))return false;
+  if(nft.balances[address]==0)return false;
   return true;
 }
 
@@ -512,22 +576,33 @@ export function isEmail(addr="") {
 
 
 export interface Bank {
-  miner:string
-  refund: number
+  miner:CryptoKey
+  refund: number  //Montant de rechargement
   title: string
   network: string
   token: string
+  limit:number //Limit de rechargement par jour
+  histo: string //Base de données de stockage de l'historique des transactions
 }
 
+export function convert_to_list(text:string="",separator=",") : string[] {
+  if(!text)return [];
+  if(typeof text!="string")return text;
+  text=text.trim()
+  if(text.length==0)return [];
+  return text.split(",");
+}
 
 export function extract_bank_from_param(params:any) : Bank | undefined {
   if(params && params["bank.miner"] && params["bank.token"]){
     return {
-      miner: params["bank.miner"],
+      miner: newCryptoKey("","","",params["bank.miner"]),
       network: params["bank.network"],
       refund: params["bank.refund"],
       title: params["bank.title"],
-      token: params["bank.token"]
+      token: params["bank.token"],
+      limit: params["bank.limit"],
+      histo:params["bank.histo"],
     }
   }
 

@@ -21,7 +21,7 @@ import {MatSelectModule} from "@angular/material/select";
 import {LoginComponent} from "./login/login.component";
 import {MatInputModule} from "@angular/material/input";
 import {UploadFileComponent} from "./upload-file/upload-file.component";
-import {FormsModule} from "@angular/forms";
+import {FormsModule, ReactiveFormsModule} from "@angular/forms";
 import {GOOGLE_CLIENT_ID} from "../definitions";
 import {AuthentComponent} from "./authent/authent.component";
 import {ScannerComponent} from "./scanner/scanner.component";
@@ -37,11 +37,15 @@ import {DeviceService} from "./device.service";
 import {SocketIoConfig, SocketIoModule} from "ngx-socket-io";
 import {environment} from "../environments/environment";
 import {MatCardModule} from "@angular/material/card";
+import {MatButtonToggle, MatButtonToggleModule} from "@angular/material/button-toggle";
+import {MatSlideToggleModule} from "@angular/material/slide-toggle";
+import {MatListModule} from "@angular/material/list";
 
 const config: SocketIoConfig = { url: environment.server, options: {} };
 
 const routes: Routes = [
   { path: '', component: MywalletComponent },
+    { path: 'wallet', component: MywalletComponent },
     { path: 'rescue', component: RescuewalletComponent },
     { path: 'rescuewallet', component: RescuewalletComponent }
 ]
@@ -68,29 +72,32 @@ Tester le wallet : http://wallet.nfluent.io/?param=YWRkcj1lcmQxNmNrNjJlZ252bXVza
         HourglassComponent,
         SplashComponent
     ],
-  imports: [
-      SocketIoModule.forRoot(config),
-    BrowserModule,
-    HttpClientModule,
-    FormsModule,
-    MatIconModule,
-    MatButtonModule,
-      MatSliderModule,
-    WebcamModule,
-      MatCardModule,
-    SocialLoginModule,
-      MatExpansionModule,
-    MatInputModule,
-    MatSnackBarModule,
-    MatProgressSpinnerModule,
-    MatTabsModule,
-    MatFormFieldModule,
-    ClipboardModule,
-    BrowserAnimationsModule,
-    RouterModule.forRoot(routes),
-    MatProgressBarModule,
-    MatSelectModule
-  ],
+    imports: [
+        SocketIoModule.forRoot(config),
+        BrowserModule,
+        HttpClientModule,
+        FormsModule,
+        MatIconModule,
+        MatButtonModule,
+        MatSliderModule,
+        WebcamModule,
+        MatCardModule,
+        SocialLoginModule,
+        MatExpansionModule,
+        MatInputModule,
+        ReactiveFormsModule,
+        MatSnackBarModule,
+        MatProgressSpinnerModule,
+        MatTabsModule,
+        MatFormFieldModule,
+        ClipboardModule,
+        BrowserAnimationsModule,
+        RouterModule.forRoot(routes),
+        MatProgressBarModule,
+        MatSelectModule,
+        MatSlideToggleModule,
+        MatListModule
+    ],
   providers: [
       AliasPipe, DeviceService,
       {provide: 'SocialAuthServiceConfig',
