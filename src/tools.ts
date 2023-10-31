@@ -1,10 +1,8 @@
 import {environment} from "./environments/environment";
-import {ActivatedRoute, Params} from "@angular/router";
-import {NFT} from "./nft";
+import {ActivatedRoute} from "@angular/router";
 import {Clipboard} from "@angular/cdk/clipboard";
-import {NFLUENT_WALLET} from "./definitions";
-import {ImageItem} from "ng-gallery";
 import {_prompt} from "./app/prompt/prompt.component";
+
 
 export interface CryptoKey {
   name: string | null
@@ -35,17 +33,6 @@ export function url_wallet(network:string) : string {
   } else {
     return "";
   }
-}
-
-export function get_nfluent_wallet_url(address:string,network:string,domain_appli:string=NFLUENT_WALLET,take_photo=false,) : string {
-  let url=domain_appli+"/?"+setParams({
-    toolbar:false,
-    address:address,
-    takePhoto:take_photo,
-    network:network
-  })
-  url=url.replace("//?","/?");
-  return url;
 }
 
 
@@ -106,7 +93,7 @@ export function getBrowserName() {
 }
 
 
-export function setParams(_d:any,prefix="",param_name="p") : string {
+export function setParams(_d:any,prefix="",param_name="p",domain="") : string {
   //Encryptage des parametres de l'url
   //Version 1.0
   let rc=[];
@@ -116,10 +103,17 @@ export function setParams(_d:any,prefix="",param_name="p") : string {
     rc.push(k+"="+encodeURIComponent(_d[k]));
   }
   let url=encrypt(prefix+rc.join("&"));
+  if(domain!=""){
+    if(domain.indexOf("?")>-1){
+      domain=domain+"&"
+    }else{
+      domain=domain+"?"
+    }
+  }
   if(param_name!="")
-    return param_name+"="+encodeURIComponent(url);
+    return domain+param_name+"="+encodeURIComponent(url);
   else
-    return encodeURIComponent(url);
+    return domain+encodeURIComponent(url);
 }
 
 export function enterFullScreen(element:any) {
@@ -202,11 +196,6 @@ export function exportToCsv(filename: string, rows: object[],separator=";",cr="\
       download_file(csvContent,filename)
 }
 
-export function init_visuels(images:any[]){
-  return(images.map((x:any)=>{
-    return new ImageItem({src:x,thumb:x});
-  }));
-}
 
 //tag #save_file save local
 export function download_file(content:string,filename:string,_type='text/csv;charset=utf-8;'){
@@ -236,6 +225,35 @@ function drawRotated(canvas:any, image:any, degrees:any) {
 }
 
 
+export function showIosInstallModal(localStorageKey: string="ios_install"): boolean {
+  // detect if the device is on iOS
+  //voir https://medium.com/ngconf/installing-your-pwa-on-ios-d1c497968e62
+  const isIos = () => {
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    return /iphone|ipad|ipod/.test(userAgent);
+  };
+
+  // check if the device is in standalone mode
+  const isInStandaloneMode = () => {
+    return (
+        "standalone" in (window as any).navigator &&
+        (window as any).navigator.standalone
+    );
+  };
+
+  // show the modal only once
+  const localStorageKeyValue = localStorage.getItem(localStorageKey);
+  const iosInstallModalShown = localStorageKeyValue
+      ? JSON.parse(localStorageKeyValue)
+      : false;
+  const shouldShowModalResponse =
+      isIos() && !isInStandaloneMode() && !iosInstallModalShown;
+  if (shouldShowModalResponse) {
+    localStorage.setItem(localStorageKey, "true");
+  }
+  return shouldShowModalResponse;
+}
+
 
 /**
  *
@@ -263,9 +281,42 @@ export function rotate(src: string, angle: number, quality: number=1) : Promise<
   });
 }
 
+export function get_images_from_banks(vm:any,api:any,sample:string="",sticker:boolean=false,max=20) : Promise<any[]> {
+  //Permet de récupérer des images depuis internet
+  //la fenetre appelante doit contenir une déclaration dialog:MatDialog
+  return new Promise(async (resolve) => {
+    if(vm && api){
+      let rc:any[]=[]
+      let query=await _prompt(vm,"Recherche d'images",sample,
+          "Votre requête en quelques mots en ANGLAIS de préférence (ajouter 'sticker' pour des images transparentes)",
+          "text",
+          "Rechercher",
+          "Annuler",false);
+
+      if(sticker){query=query+" sticker"}
+      api.search_images(query,sticker).subscribe(async (r:any)=>{
+        let message=max>1 ? "Sélectionez une ou plusieurs images" : "Sélectionez une image";
+        let images=await _prompt(vm,message,"","","images","Sélectionner","Annuler",false,r.images,false,max)
+        let idx=0
+        for(let link of images){
+          rc.push({image:link,name:"bank_"+now("rand")+"_"+idx,ext:"image/jpg"});
+          idx=idx+1
+        }
+        resolve(rc)
+      })
+    }
+
+  })
+
+}
+
+export function eval_direct_url_xportal(uri:string) : string {
+  let rc="https://xportal.com/?wallet-connect="+uri; //"+this.provider.?relay-protocol%3Dirn&symKey=2a0e80dd8b982dac05eef5ce071fbe541d390fc302666d09856ae379416bfa6e"
+  return "https://maiar.page.link/?apn=com.elrond.maiar.wallet&isi=1519405832&ibi=com.elrond.maiar.wallet&link="+encodeURIComponent(rc);
+}
 
 export function apply_params(vm:any,params:any,env:any={}){
-  for(let prop of ["claim","title","appname","background","visual","new_account_mail","existing_account_mail","website","cgu","contact","company","logo"]){
+  for(let prop of ["intro","duration_intro","duration","claim","title","appname","background","visual","new_account_mail","existing_account_mail","website","cgu","contact","company","logo"]){
     if(vm.hasOwnProperty(prop))vm[prop]=params[prop] || env[prop] || "";
   }
 
@@ -283,28 +334,28 @@ export function apply_params(vm:any,params:any,env:any={}){
   if(style && vm.hasOwnProperty("style")){
     vm.style.setStyle("theme","./"+style);
   }
-  if(vm.hasOwnProperty("miner"))vm.miner = newCryptoKey("","","",params.miner || env.miner)
+  if(vm.hasOwnProperty("miner") && (params.miner || env.miner)){
+    vm.miner = newCryptoKey("","","",params.miner || env.miner)
+  }
+
   if(vm.hasOwnProperty("user")){
     vm.user.params = params;
-    $$("Conservation des parametres dans le service user")
+    if(params.hasOwnProperty("toolbar")){
+      vm.user.toolbar_visible=(params["toolbar"]=="true")
+    }
+    $$("Conservation des paramètres dans le service user")
   }
 }
 
 
-export function open_image_banks(vm:any){
-  showMessage(vm,"Il est possible de faire directement glisser les images d'un site web vers le calque souhaité")
-  _prompt(vm,"Saisissez un mot clé (de préférence en anglais)",
-      "rabbit",
-      "Accéder directement à plusieurs moteurs de recherche d'image","text",
-      "Rechercher","Annuler",false).then((resp:any)=>{
-    open("https://www.google.com/search?q=google%20image%20"+resp+"&tbm=isch&tbs=ic:trans","search_google");
-    open("https://giphy.com/search/"+resp,"giphy")
-    open("https://pixabay.com/fr/vectors/search/"+resp+"/","search_vector")
-    open("https://thenounproject.com/search/icons/?iconspage=1&q="+resp,"search_vector")
-    open("https://pixabay.com/images/search/"+resp+"/?colors=transparent","search_transparent")
-    open("https://www.pexels.com/fr-fr/chercher/"+resp+"/","search_pexels")
-  })
-
+export function isURL(s:string,need_http=false):boolean {
+  if(!s || s=='')return false;
+  if(s.indexOf(".")==-1)return false;
+  let ext=s.split('.')[1].trim()
+  if(ext.length<2)return false;
+  if(!need_http)return true;
+  if(s.indexOf("http://")==0 || s.indexOf("https://")==0)return true;
+  return false;
 }
 
 export function getParams(routes:ActivatedRoute,local_setting_params="",force_treatment=false) {
@@ -344,7 +395,14 @@ export function getParams(routes:ActivatedRoute,local_setting_params="",force_tr
 }
 
 export function decrypt(s:string | any) : string {
-  if(s)return atob(s);
+  if(s){
+    try{
+      return atob(s);
+    }catch (e){
+      $$("Impossible de décoder les paramètres ",s)
+    }
+
+  }
   return "";
 }
 
@@ -512,11 +570,6 @@ export function copyAchievements(clp:Clipboard,to_copy:string) {
 
 }
 
-export function canTransfer(nft:NFT,address:string) : boolean {
-  if(!nft.balances.hasOwnProperty(address))return false;
-  if(nft.balances[address]==0)return false;
-  return true;
-}
 
 
 export function find_miner_from_operation(operation:any,addr:string) : any {
@@ -553,6 +606,51 @@ export function detect_network(addr:string) : string {
   return "solana";
 }
 
+export function create_manifest_for_webapp_install(content:any,document:any,icon_path="",icon_size=""){
+  //see https://medium.com/@alshakero/how-to-setup-your-web-app-manifest-dynamically-using-javascript-f7fbee899a61
+
+  if(icon_path!="" && icon_size!=""){
+    if(!content["icons"])content["icons"]=[]
+    for(let size of icon_size.split(",")){
+      content["icons"].push({
+        "src": icon_path.replace("%%",size),
+        "sizes": size+"x"+size,
+        "type": "image/png"
+      })
+    }
+  }
+  if(!content.hasOwnProperty("display"))content["display"]="standalone"
+  if(!content.hasOwnProperty("short_name"))content["short_name"]=content["name"]
+  if(!content.hasOwnProperty("scope"))content["scope"]="./"
+  if(!content.hasOwnProperty("start_url"))content["start_url"]="./"
+
+
+  const stringManifest = JSON.stringify(content);
+  const blob = new Blob([stringManifest], {type: 'application/json'});
+  const manifestURL = URL.createObjectURL(blob);
+  document.querySelector('#my-manifest-placeholder').setAttribute('href', manifestURL);
+}
+
+
+export function getNetworks(name:string="elrond"): any[] {
+  let rc=[]
+  if(name.indexOf("elrond")>-1 || name.indexOf("multiversx")>-1) {
+    rc.push({label:"MultiversX Test",value:"elrond-devnet"})
+    rc.push({label:"MultiversX",value:"elrond-mainnet"})
+    rc.push({label:"MultiversX Test 2",value:"elrond-devnet2"})
+  }
+  return rc;
+}
+
+export function getWalletUrl(network="elrond"): string {
+  if(network.indexOf("elrond")>-1){
+    let _type=network.split("-")[1]+"-"
+    if(_type=="mainnet-")_type=""
+    return "https://"+_type+"wallet.multiversx.com"
+  }
+  return ""
+}
+
 export function detect_type_network(network:string){
   if(network.indexOf("devnet")>-1)return "devnet";
   return "mainnet";
@@ -581,7 +679,9 @@ export interface Bank {
   title: string
   network: string
   token: string
+  collection:string
   limit:number //Limit de rechargement par jour
+  wallet_limit: number
   histo: string //Base de données de stockage de l'historique des transactions
 }
 
@@ -601,8 +701,10 @@ export function extract_bank_from_param(params:any) : Bank | undefined {
       refund: params["bank.refund"],
       title: params["bank.title"],
       token: params["bank.token"],
+      wallet_limit:params["bank.wallet_limit"],
       limit: params["bank.limit"],
       histo:params["bank.histo"],
+      collection:params["bank.collection"]
     }
   }
 
